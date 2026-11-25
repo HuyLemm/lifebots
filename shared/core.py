@@ -309,6 +309,50 @@ def wait_and_listen(
             return
 
 
+def run_once(
+    check: Callable,
+    cfg: dict,
+    interval: int,
+    tg: Telegram,
+    state: State,
+    args: argparse.Namespace,
+    commands: dict[str, tuple[Handler, str]],
+    callbacks: dict[str, Handler],
+) -> None:
+    """One short run for a scheduler (GitHub Actions cron).
+
+    Answers Telegram commands that arrived since the last run, runs the check only when its
+    interval has elapsed (the cron fires every ~5 min, news wants every 10), saves, exits.
+    """
+    if not tg.dry:
+        if not state.data.get("commands_set"):
+            tg.set_commands({c: d for c, (_, d) in commands.items()})
+            state.data["commands_set"] = True
+        try:
+            updates = tg.get_updates(state.data.get("offset"), 0)
+        except httpx.HTTPError as e:
+            log.warning("getUpdates failed: %s", e)
+            updates = []
+        for u in updates:
+            state.data["offset"] = u["update_id"] + 1
+            try:
+                handle_update(u, tg, state, args, commands, callbacks)
+            except Exception:
+                log.exception("command failed")
+
+    due = args.now or time.time() - state.data.get("last_check", 0) >= interval - 45
+    if due and not state.data.get("paused"):
+        try:
+            check(tg, state, args, cfg)
+            state.source_ok("check", tg)
+        except Exception as e:  # noqa: BLE001 - a bad source must not fail the whole run
+            log.exception("check failed")
+            state.source_failed("check", f"{type(e).__name__}: {e}", tg)
+        state.data["last_check"] = time.time()
+    if not tg.dry:
+        state.save()
+
+
 def run(
     bot_dir: Path,
     check: Callable,
@@ -322,6 +366,11 @@ def run(
     """
     p = argparse.ArgumentParser(description=bot_dir.name)
     p.add_argument("--loop", action="store_true", help="keep running")
+    p.add_argument(
+        "--once",
+        action="store_true",
+        help="scheduler mode (GitHub Actions): answer pending commands, check if due, exit",
+    )
     p.add_argument("--interval", type=int, help="seconds between checks (default: config.toml)")
     p.add_argument("--dry", action="store_true", help="print instead of sending to Telegram")
     p.add_argument("--now", action="store_true", help="send a snapshot even if nothing changed")
@@ -333,6 +382,9 @@ def run(
     interval = args.interval or cfg.get("interval_seconds", interval_default)
     tg, state = Telegram(args.dry, name=bot_dir.name), State(bot_dir)
     all_commands = {**COMMON_COMMANDS, **(commands or {})}
+    if args.once:
+        run_once(check, cfg, interval, tg, state, args, all_commands, callbacks or {})
+        return
     if args.loop:
         tg.set_commands({c: d for c, (_, d) in all_commands.items()})
         log.info("%s started (interval %ss)", bot_dir.name, interval)

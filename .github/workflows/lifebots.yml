@@ -1,0 +1,89 @@
+name: LifeBots
+
+# Runs the 4 bots as short jobs on GitHub's free runners (no server, no card).
+# GitHub's cron: fastest every 5 min, often 5-30 min late. State lives on the `state` branch.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: lifebots
+  cancel-in-progress: false  # never two runs at once (they would fight over Telegram updates)
+
+permissions:
+  contents: write  # push the `state` branch
+  actions: write   # keep the schedule enabled
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      TZ: Asia/Ho_Chi_Minh
+      LIFEBOTS_CI: "1"
+      LIFEBOTS_LOG_STDOUT: "1"
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -q httpx
+
+      - name: "Restore state from the `state` branch"
+        run: |
+          git fetch --depth=1 origin state 2>/dev/null || { echo "no state branch yet (first run)"; exit 0; }
+          for f in price/state.json news/state.json weather/state.json stuff/state.json price/history.csv; do
+            git checkout FETCH_HEAD -- "$f" 2>/dev/null && echo "restored $f" || true
+          done
+
+      - name: price
+        if: always()
+        env:
+          BOT_TOKEN: ${{ secrets.PRICE_BOT_TOKEN }}
+        run: python -m price.bot --once
+
+      - name: news
+        if: always()
+        env:
+          BOT_TOKEN: ${{ secrets.NEWS_BOT_TOKEN }}
+        run: python -m news.bot --once
+
+      - name: weather
+        if: always()
+        env:
+          BOT_TOKEN: ${{ secrets.WEATHER_BOT_TOKEN }}
+        run: python -m weather.bot --once
+
+      - name: stuff
+        if: always()
+        env:
+          BOT_TOKEN: ${{ secrets.STUFF_BOT_TOKEN }}
+        run: python -m stuff.bot --once
+
+      - name: "Save state to the `state` branch (one commit, force-pushed so history never grows)"
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/st
+          for f in price/state.json news/state.json weather/state.json stuff/state.json price/history.csv; do
+            [ -f "$f" ] && mkdir -p "/tmp/st/$(dirname "$f")" && cp "$f" "/tmp/st/$f" || true
+          done
+          cd /tmp/st
+          git init -q
+          git checkout -q -b state
+          git add -A
+          git -c user.name=lifebots -c user.email=lifebots@users.noreply.github.com commit -q -m "state $(date -u +%FT%TZ)"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" state
+
+      - name: "Keep the schedule enabled (GitHub pauses cron after 60 days of inactivity)"
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow enable lifebots.yml || true

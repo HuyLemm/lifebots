@@ -79,3 +79,17 @@ Bot chỉ gọi ra ngoài, **không cần mở cổng nào**, và 4 bot dùng kh
 - **Oracle Cloud Always Free:** VM cấu hình cao, chọn được vùng Singapore, nhưng hay báo hết tài nguyên, có chính sách thu hồi máy ít dùng, và hạn mức Ampere A1 bị giảm từ 8/2026.
 - **Không cần thẻ:** máy cũ hoặc Raspberry Pi ở nhà, hoặc cứ để máy tính này chạy (tác vụ `LifeBots`).
 Máy 1 GB nên thêm swap: `sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`.
+
+## Chạy bằng GitHub Actions (không thẻ, không server)
+Bot chạy theo lịch trên máy chủ miễn phí của GitHub, `git push` là deploy. Đánh đổi: **chạy mỗi ~5 phút, hay trễ 5–30 phút**, lệnh Telegram (`/status`...) trả lời ở lượt chạy kế tiếp.
+
+    winget install --id GitHub.cli -e      # 1 lần; mở terminal mới
+    gh auth login                          # 1 lần
+    .\deploy\github_setup.ps1 -Repo lifebots -IKnowItIsPublic
+
+Script tạo repo **công khai** (gói free chỉ không giới hạn phút chạy với repo công khai), đưa token vào GitHub Secrets (mã hoá, không nằm trong code), nạp trạng thái hiện tại, dừng bot local (tránh hai nơi cùng nhận lệnh) và chạy lượt đầu. Công khai: code và `config.toml` (từ khoá, kênh). Bí mật: token, chat id.
+- Workflow: `.github/workflows/lifebots.yml`. Chế độ chạy: `python -m <bot>.bot --once` (mỗi bot chỉ kiểm tra khi đến hạn `interval_seconds` của nó).
+- Trạng thái nằm ở nhánh `state` (1 commit, ghi đè mỗi lượt nên không phình).
+- Xem log: tab **Actions** trên GitHub. Chạy tay: `gh workflow run lifebots.yml`.
+- Lịch của GitHub bị tạm dừng nếu repo không hoạt động 60 ngày; workflow có bước tự bật lại, nhưng nếu thấy bot im lặng hãy vào tab Actions bấm **Enable workflow**.
+- Quay lại máy local: `Enable-ScheduledTask LifeBots; Start-ScheduledTask LifeBots` và tắt workflow trên GitHub (tránh hai nơi cùng chạy).

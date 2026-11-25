@@ -299,3 +299,78 @@ def test_state_save_is_atomic(tmp_path):
     st.save()
     assert State(tmp_path).data == {"x": 1}
     assert not list(Path(tmp_path).glob("*.tmp"))
+
+
+# ---------- scheduler (--once) mode ----------
+
+
+class OnceTG(FakeTG):
+    """FakeTG that can also hand back queued Telegram updates."""
+
+    def __init__(self, updates=()):
+        super().__init__()
+        self.updates = list(updates)
+        self.commands_set = False
+
+    def get_updates(self, offset, timeout):
+        out, self.updates = self.updates, []
+        return out
+
+    def set_commands(self, commands):
+        self.commands_set = True
+
+
+def _once(tmp_path, tg, state_data=None, now=False, interval=600):
+    from shared.core import COMMON_COMMANDS, run_once
+
+    st = State(tmp_path)
+    st.data.update(state_data or {})
+    calls = []
+    run_once(lambda *a: calls.append(1), {}, interval, tg, st, args(now), COMMON_COMMANDS, {})
+    return st, calls
+
+
+def test_once_skips_check_when_interval_not_elapsed(tmp_path):
+    import time
+
+    _, calls = _once(tmp_path, OnceTG(), {"last_check": time.time() - 60})
+    assert calls == []  # cron fires every 5 min but news wants every 10
+
+
+def test_once_runs_check_when_due_and_stamps_time(tmp_path):
+    import time
+
+    st, calls = _once(tmp_path, OnceTG(), {"last_check": time.time() - 3600})
+    assert calls == [1] and time.time() - st.data["last_check"] < 5
+
+
+def test_once_now_flag_forces_check(tmp_path):
+    import time
+
+    _, calls = _once(tmp_path, OnceTG(), {"last_check": time.time()}, now=True)
+    assert calls == [1]
+
+
+def test_once_answers_pending_commands_and_respects_pause(tmp_path):
+    tg = OnceTG([_msg("/pause")])
+    st, calls = _once(tmp_path, tg, {"last_check": 0})
+    assert st.data["paused"] is True and calls == []  # paused by a command from this very run
+    assert st.data["offset"] == 2 and tg.commands_set
+
+
+def test_once_ignores_commands_from_strangers(tmp_path):
+    tg = OnceTG([_msg("/pause", chat=999)])
+    st, calls = _once(tmp_path, tg, {"last_check": 0})
+    assert not st.data.get("paused") and calls == [1]
+
+
+def test_health_uses_last_check_not_file_mtime(tmp_path, monkeypatch):
+    import json
+    import time
+
+    from shared import health
+
+    (tmp_path / "x").mkdir()
+    (tmp_path / "x" / "state.json").write_text(json.dumps({"last_check": time.time() - 500}))
+    monkeypatch.setattr(health, "ROOT", tmp_path)
+    assert 480 < health.bot_age("x") < 560
