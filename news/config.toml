@@ -1,7 +1,7 @@
 # Bot tin: chỉnh ở đây, không cần sửa code.
 # Mỗi nguồn: name, url, topic (tech/world/economy/crime), priority (1 = gửi trước),
 # keywords (bỏ trống = báo mọi bài mới của nguồn đó).
-interval_seconds = 600          # kiểm tra mỗi 10 phút
+interval_seconds = 300          # kiểm tra mỗi lượt chạy (~5 phút, nhanh nhất lịch GitHub cho phép)
 max_per_run = 10                # tối đa mỗi lượt; công nghệ được gửi trước
 digest_over = 6                 # nhiều hơn 6 tin cùng lúc -> gộp thành 1 tin tổng hợp
 
