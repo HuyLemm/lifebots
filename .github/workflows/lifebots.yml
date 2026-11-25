@@ -4,7 +4,7 @@ name: LifeBots
 # GitHub's cron: fastest every 5 min, often 5-30 min late. State lives on the `state` branch.
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "2-57/5 * * * *"  # minutes 2,7,12,...: off the busy :00/:05 marks, where GitHub delays cron most
   workflow_dispatch:
 
 concurrency:
