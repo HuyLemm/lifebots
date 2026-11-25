@@ -23,7 +23,9 @@ param(
     [switch] $KeepLocalRunning
 )
 
-$ErrorActionPreference = "Stop"
+# Windows PowerShell 5.1 turns ANY stderr line of a native program (ssh prints host-key warnings
+# there) into a terminating error under "Stop". Native failures are checked via $LASTEXITCODE.
+$ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 $sshArgs = @("-p", $Port, "-o", "StrictHostKeyChecking=accept-new")
 $scpArgs = @("-P", $Port, "-o", "StrictHostKeyChecking=accept-new")

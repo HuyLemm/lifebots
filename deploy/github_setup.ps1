@@ -23,7 +23,9 @@ param(
     [switch] $KeepLocalRunning
 )
 
-$ErrorActionPreference = "Stop"
+# Windows PowerShell 5.1 turns ANY stderr line of a native program (gh/git print progress there)
+# into a terminating error when this is "Stop". Native failures are checked via $LASTEXITCODE instead.
+$ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
@@ -44,12 +46,12 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     Write-Host "  winget install --id GitHub.cli -e"
     exit 1
 }
-& gh auth status 2>$null
+& gh auth status *> $null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Not logged in. Run:  gh auth login   (choose GitHub.com, HTTPS, login with browser)" -ForegroundColor Yellow
     exit 1
 }
-& gh auth setup-git | Out-Null
+& gh auth setup-git *> $null
 $owner = (& gh api user --jq .login).Trim()
 Write-Host "Logged in as $owner"
 
@@ -70,7 +72,7 @@ function ReadEnv([string]$bot, [string]$key) {
 $stoppedLocal = $false
 try {
     Step "Create the repo and push the code"
-    & gh repo view "$owner/$Repo" 2>$null | Out-Null
+    & gh repo view "$owner/$Repo" *> $null
     if ($LASTEXITCODE -ne 0) {
         & gh repo create $Repo --public --source $root --remote origin --push
         if ($LASTEXITCODE -ne 0) { throw "gh repo create failed" }
@@ -119,15 +121,17 @@ try {
     Push-Location $tmp
     try {
         & git init -q
+        if ($LASTEXITCODE -ne 0) { throw "git init failed" }
         & git checkout -q -b state
         & git add -A
         & git -c user.name=lifebots -c user.email=lifebots@users.noreply.github.com commit -q -m "seed state"
+        if ($LASTEXITCODE -ne 0) { throw "could not commit the seed state" }
         & git push -q -f "https://github.com/$owner/$Repo.git" state
         if ($LASTEXITCODE -ne 0) { throw "could not push the state branch" }
     } finally { Pop-Location }
 
     Step "Start the first run"
-    & gh workflow enable lifebots.yml --repo "$owner/$Repo" 2>$null | Out-Null
+    & gh workflow enable lifebots.yml --repo "$owner/$Repo" *> $null
     & gh workflow run lifebots.yml --repo "$owner/$Repo"
     Write-Host "`nDONE. Watch it: https://github.com/$owner/$Repo/actions" -ForegroundColor Green
     Write-Host "From now on it runs every ~5 minutes by itself. To change code: edit, git commit, git push."
