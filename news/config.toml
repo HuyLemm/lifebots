@@ -1,0 +1,61 @@
+# Bot tin: chỉnh ở đây, không cần sửa code.
+# Mỗi nguồn: name, url, topic (tech/world/economy/crime), priority (1 = gửi trước),
+# keywords (bỏ trống = báo mọi bài mới của nguồn đó).
+interval_seconds = 600          # kiểm tra mỗi 10 phút
+max_per_run = 10                # tối đa mỗi lượt; công nghệ được gửi trước
+digest_over = 6                 # nhiều hơn 6 tin cùng lúc -> gộp thành 1 tin tổng hợp
+
+# ---------- CÔNG NGHỆ (ưu tiên, báo hết) ----------
+[[feeds]]
+name = "VnExpress Số hoá"
+url = "https://vnexpress.net/rss/so-hoa.rss"
+topic = "tech"
+priority = 1
+
+[[feeds]]
+name = "GenK"
+url = "https://genk.vn/rss/home.rss"
+topic = "tech"
+priority = 1
+
+[[feeds]]
+name = "Tinh tế"
+url = "https://tinhte.vn/rss"
+topic = "tech"
+priority = 1
+
+[[feeds]]
+name = "The Verge"
+url = "https://www.theverge.com/rss/index.xml"
+topic = "tech"
+priority = 1
+
+[[feeds]]
+name = "Hacker News (>=300 điểm)"
+url = "https://hnrss.org/frontpage?points=300"
+topic = "tech"
+priority = 1
+
+# ---------- CHIẾN TRANH / THẾ GIỚI ----------
+[[feeds]]
+name = "VnExpress Thế giới"
+url = "https://vnexpress.net/rss/the-gioi.rss"
+topic = "world"
+priority = 2
+keywords = ["chiến sự", "chiến tranh", "xung đột", "không kích", "tấn công", "tên lửa", "ngừng bắn", "Ukraine", "Gaza", "Israel", "Trung Đông", "Biển Đông", "Triều Tiên"]
+
+# ---------- KINH TẾ ----------
+[[feeds]]
+name = "VnExpress Kinh doanh"
+url = "https://vnexpress.net/rss/kinh-doanh.rss"
+topic = "economy"
+priority = 2
+keywords = ["lạm phát", "lãi suất", "giá vàng", "tỷ giá", "suy thoái", "GDP", "Fed", "giá xăng", "chứng khoán", "VN-Index", "thuế", "ngân hàng nhà nước"]
+
+# ---------- VỤ ÁN ----------
+[[feeds]]
+name = "VnExpress Pháp luật"
+url = "https://vnexpress.net/rss/phap-luat.rss"
+topic = "crime"
+priority = 3
+keywords = ["vụ án", "đại án", "khởi tố", "bắt tạm giam", "truy nã", "lừa đảo", "giết người", "bắt giữ"]

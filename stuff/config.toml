@@ -1,0 +1,88 @@
+# Bot Stuff: săn sale CHỈ từ Shopee, Lazada, TikTok Shop (qua các kênh Telegram công khai).
+# Chỉnh ở đây, không cần sửa code.
+interval_seconds = 300          # kiểm tra mỗi 5 phút
+max_per_run = 8                 # tối đa mỗi lượt
+
+# Chỉ lấy bài có link của các sàn này (bài không có link sàn nào sẽ bị bỏ)
+channel_platforms = ["Shopee", "Lazada", "TikTok Shop"]
+
+# Chỉ báo SẢN PHẨM có giá / % giảm (bỏ qua bài mã giảm giá). Từ khoá sở thích bên dưới để lọc
+# loại sản phẩm (không phân biệt hoa thường). [] = lấy mọi sản phẩm của mọi ngành hàng, rất nhiều.
+channel_keywords = [
+  # --- Công nghệ: điện thoại, máy tính, phụ kiện ---
+  "iphone", "ipad", "macbook", "laptop", "máy tính bảng", "airpods", "apple watch", "smartwatch",
+  "đồng hồ thông minh", "vòng đeo tay thông minh", "ốp lưng", "cường lực", "sạc dự phòng", "củ sạc",
+  "sạc nhanh", "cáp sạc", "cáp type", "dây hdmi", "pin sạc", "thẻ nhớ", "ổ cứng", "ssd", "usb", "hub",
+  "tai nghe", "tai nghe không dây", "loa", "bluetooth", "micro", "webcam", "camera", "máy ảnh",
+  "máy chiếu", "tivi", "tv box", "android tv", "máy đọc sách", "kindle", "máy in", "router", "wifi",
+  "ổ cắm thông minh", "robot hút bụi", "máy lọc không khí", "công nghệ",
+  # --- Gaming / PC ---
+  "gaming", "tay cầm", "ps5", "nintendo", "steam deck", "ghế gaming", "card màn hình", "vga", "cpu",
+  "mainboard", "tản nhiệt", "case máy", "nguồn máy tính", "ram ddr", "ram laptop", "đèn rgb",
+  # --- Góc làm việc / desk setup ---
+  "bàn phím", "keycap", "switch", "phím cơ", "kê tay", "chuột", "lót chuột", "màn hình", "tripod",
+  "giá đỡ", "gimbal", "ghế công thái học", "bàn nâng hạ", "bàn làm việc", "đế tản nhiệt", "dock",
+  "kệ kê bàn", "kệ để bàn", "kệ màn hình", "giá treo tai nghe", "đèn treo màn hình",
+  # --- Trang trí / nhà cửa ---
+  "kệ treo", "kệ từ tính", "kệ sách", "kệ giày", "giá kê", "đèn led", "led dây", "đèn neon", "đèn ngủ",
+  "đèn bàn", "đèn cây", "đèn trang trí", "trang trí", "decor", "tranh treo", "tranh canvas", "poster",
+  "khung ảnh", "tượng", "gương treo", "đồng hồ treo tường", "nến thơm", "tinh dầu", "máy khuếch tán",
+  "thảm trải", "rèm", "bình hoa", "cây giả", "móc treo",
+  # --- Mô hình / sưu tầm / giải trí ---
+  "mô hình", "figure", "nendoroid", "gundam", "lego", "hot wheels", "mini gt", "xe mô hình",
+  "blind box", "pop mart", "rubik", "board game", "cờ vua", "đàn guitar", "ukulele",
+  # --- Đi chơi / du lịch / phượt / cắm trại ---
+  "balo", "ba lô", "balo laptop", "túi đeo chéo", "túi chéo", "túi ngực", "vali", "lều", "cắm trại",
+  "dã ngoại", "du lịch", "bếp du lịch", "ghế xếp", "đèn pin", "quạt mini", "bình giữ nhiệt",
+  "ly giữ nhiệt", "bình nước", "action cam", "gopro", "camera 360", "áo mưa", "áo chống nắng",
+  "khẩu trang", "kính bảo hộ", "đồ bơi", "quần bơi", "kính bơi", "phao", "cần câu", "đồ câu",
+  # --- Xe máy / ô tô ---
+  "mũ bảo hiểm", "găng tay xe", "camera hành trình", "phụ kiện xe", "giá đỡ điện thoại xe",
+  "thảm lót", "nước rửa xe", "dầu nhớt", "lốp", "máy hút bụi ô tô", "bơm lốp", "sạc ô tô",
+  # --- Dụng cụ / DIY ---
+  "máy khoan", "máy bắn vít", "bộ dụng cụ", "tua vít", "mỏ hàn", "đồng hồ vạn năng", "cờ lê",
+  "máy cắt", "máy mài", "thước đo", "đèn công tác",
+  # --- Gym / thể thao ---
+  "whey", "creatine", "tạ tay", "tạ đơn", "dây kháng lực", "dây nhảy", "thảm yoga", "thảm tập",
+  "găng tay tập", "bình lắc", "xà đơn", "con lăn", "súng massage", "máy massage", "ghế massage",
+  "đai lưng", "giày chạy", "áo thể thao", "quần thể thao", "vợt cầu lông", "bóng đá", "bóng rổ",
+  "đồng hồ thể thao",
+  # --- Nước hoa / chăm sóc nam ---
+  "nước hoa", "chiết nước hoa", "body mist", "xịt thơm", "eau de", "edp", "edt", "lăn khử mùi",
+  "lăn nách", "dầu gội", "dầu xả", "sữa tắm", "sữa rửa mặt", "kem cạo râu", "máy cạo râu", "dao cạo",
+  "tông đơ", "sáp vuốt tóc", "kem chống nắng", "serum", "dưỡng môi", "son dưỡng",
+  # --- Quần áo / giày dép / phụ kiện nam ---
+  "áo thun", "áo polo", "áo sơ mi", "áo khoác", "áo gió", "áo len", "áo hoodie", "hoodie", "sweater",
+  "áo ba lỗ", "tank top", "quần jean", "quần short", "quần đùi", "quần jogger", "quần kaki", "quần tây",
+  "quần lót", "boxer", "tất nam", "vớ nam", "giày", "sneaker", "dép", "sandal", "thắt lưng", "dây nịt",
+  "ví nam", "ví da", "túi xách nam", "nón", "mũ lưỡi trai", "mũ bucket", "kính râm", "kính mát",
+  "đồng hồ", "dây đồng hồ", "vòng tay", "dây chuyền", "nhẫn",
+  # --- Đồ gia dụng nhỏ / bếp ---
+  "nồi chiên", "máy xay", "ấm đun", "máy pha cà phê", "phin cà phê", "cà phê", "quạt",
+  # --- Hãng / model công nghệ hay gặp (bài chỉ ghi tên model, không ghi loại hàng) ---
+  "aula", "leobog", "akko", "keychron", "dareu", "mad60", "win60", "s75", "k98", "logitech", "razer",
+  "corsair", "steelseries", "hyperx", "xiaomi", "redmi", "anker", "baseus", "ugreen", "samsung",
+  "sony", "jbl", "asus", "msi", "lenovo", "ulanzi", "imou", "tp-link", "kingston", "sandisk",
+]
+
+# Kênh Telegram CÔNG KHAI săn sale. handle = phần sau t.me/ (không có @).
+# Mỗi kênh có thể có keywords riêng; [] = lấy mọi bài của kênh đó.
+[[channels]]
+name = "Mã giảm giá săn deal"      # Shopee + Lazada + TikTok Shop
+handle = "magiamgiasandeal"
+
+[[channels]]
+name = "Góc Săn Deal"              # chủ yếu Lazada
+handle = "gocsandeal"
+
+[[channels]]
+name = "Lụm Mã Shopee"             # Shopee
+handle = "tangmagiamgiashopee"
+
+[[channels]]
+name = "Nghiện Săn Deal"           # Shopee + TikTok Shop
+handle = "nghiensandeal"
+
+[[channels]]
+name = "Nghiện Săn Sale Lazada"    # Lazada + Shopee
+handle = "nghienlazada90"

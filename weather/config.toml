@@ -1,0 +1,21 @@
+# Bot thời tiết: chỉnh ở đây, không cần sửa code.
+interval_seconds = 300          # kiểm tra mỗi 5 phút (báo cáo đúng giờ, bất thường báo ngay)
+place = "TP.HCM"
+latitude = 10.78
+longitude = 106.70
+
+# Mỗi ngày gửi thời tiết hiện tại + tỉ lệ mưa vào các giờ này (giờ máy, 0-23)
+report_hours = [0, 8, 12, 16, 20]
+
+# Cảnh báo bất thường (chỉ báo khi vượt ngưỡng)
+look_ahead_hours = 3            # "sắp mưa" = trong bao nhiêu giờ tới
+rain_probability_pct = 60       # sắp mưa: xác suất >= 60%...
+rain_mm = 1.0                   # ...hoặc lượng mưa >= 1 mm
+heavy_rain_mm = 30              # mưa cả ngày >= 30 mm -> cảnh báo ngập
+heat_c = 38                     # nhiệt độ cảm giác cao nhất >= 38°C -> nắng nóng
+cold_c = 18                     # thấp nhất <= 18°C -> trời lạnh (TP.HCM hiếm khi tới)
+uv_alert = 8                    # UV >= 8
+wind_kmh = 40                   # gió >= 40 km/h
+temp_swing_c = 5                # nhiệt độ cao nhất lệch hôm qua >= 5°C
+aqi_alert = 150                 # AQI (US) >= 150 (xấu)
+cooldown_hours = 4              # "sắp mưa"/AQI không lặp lại trong 4 giờ

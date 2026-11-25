@@ -1,0 +1,11 @@
+.env
+state.json
+state.tmp
+history.csv
+logs/
+*.log
+__pycache__/
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/

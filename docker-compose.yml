@@ -1,0 +1,28 @@
+# 3 bot = 3 container độc lập, tự khởi động lại khi lỗi hoặc khi server reboot.
+# Mỗi folder bot được mount vào để đọc .env/config.toml và lưu state.json lâu dài.
+x-bot: &bot
+  build: .
+  restart: unless-stopped
+  environment:
+    LIFEBOTS_LOG_STDOUT: "1"   # logs visible in `docker compose logs`
+  logging:
+    driver: json-file
+    options: {max-size: "5m", max-file: "3"}
+
+services:
+  price:
+    <<: *bot
+    command: python -m price.bot --loop
+    volumes: ["./price:/app/price"]
+  news:
+    <<: *bot
+    command: python -m news.bot --loop
+    volumes: ["./news:/app/news"]
+  weather:
+    <<: *bot
+    command: python -m weather.bot --loop
+    volumes: ["./weather:/app/weather"]
+  stuff:
+    <<: *bot
+    command: python -m stuff.bot --loop
+    volumes: ["./stuff:/app/stuff"]

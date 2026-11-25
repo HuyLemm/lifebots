@@ -1,0 +1,20 @@
+[project]
+name = "lifebots"
+version = "0.2.0"
+description = "Telegram bots for daily life: prices, news, weather/air quality"
+requires-python = ">=3.11"
+dependencies = ["httpx", "truststore"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "pillow"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]  # long Vietnamese message strings
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

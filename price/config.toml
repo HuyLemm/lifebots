@@ -1,0 +1,28 @@
+# Bot giá: báo mỗi khi giá cập nhật. Chỉnh ở đây, không cần sửa code.
+interval_seconds = 60           # kiểm tra mỗi phút: giá vừa đổi là báo ngay
+heartbeat_hour = 9             # mỗi ngày gửi bản tin "LifeBots còn sống" lúc 9h (-1 = tắt); thứ Hai kèm giá tuần qua
+
+# enabled = bật/tắt theo dõi
+# min_change_pct = chỉ báo khi lệch ít nhất X% so với lần báo trước (0 = báo mọi thay đổi)
+
+[trackers.sjc]                  # Vàng SJC (nguồn: sjc.com.vn)
+enabled = true
+branch = "Hồ Chí Minh"
+min_change_pct = 0
+
+[trackers.pnj]                  # Vàng PNJ (nguồn: PNJ)
+enabled = true
+min_change_pct = 0
+
+[trackers.petrol]               # Xăng dầu Petrolimex, đổi giá theo kỳ điều hành
+enabled = true
+region = 1                      # 1 = vùng 1 (nội thành HCM/HN), 2 = vùng 2
+min_change_pct = 0
+
+[trackers.world_gold]           # Vàng thế giới, đổi liên tục nên đặt ngưỡng %
+enabled = true
+min_change_pct = 1.0
+
+[trackers.usd_vnd]              # Tỷ giá USD/VND
+enabled = true
+min_change_pct = 0.3
