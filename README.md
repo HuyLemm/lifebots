@@ -72,3 +72,10 @@ Lưu ý: mỗi container chỉ thấy thư mục của chính nó nên cảnh b�
 
 Script: dừng bot local (tránh 2 nơi cùng nhận lệnh/gửi trùng) -> đóng gói (kèm `.env` và `state.json` để bot tiếp tục, không gửi lại tin cũ) -> tải lên -> `docker compose up -d --build` -> in trạng thái. Nếu server lỗi, script **tự bật lại bot local**.
 Cập nhật code sau này: chạy lại đúng lệnh trên (chỉ build lại phần thay đổi). Muốn bật lại bot local: `Enable-ScheduledTask LifeBots; Start-ScheduledTask LifeBots` (và dừng trên server: `docker compose down`).
+
+### Server miễn phí
+Bot chỉ gọi ra ngoài, **không cần mở cổng nào**, và 4 bot dùng khoảng 200–250 MB RAM nên VM 1 GB là đủ.
+- **Google Cloud e2-micro** (Always Free): 1 VM ở Oregon `us-west1`, Iowa `us-central1` hoặc South Carolina `us-east1`, 30 GB đĩa, 1 GB truyền dữ liệu Bắc Mỹ/tháng. Cần tài khoản thanh toán (thẻ). Nên đặt cảnh báo ngân sách để không bị tính phí ngoài ý muốn.
+- **Oracle Cloud Always Free:** VM cấu hình cao, chọn được vùng Singapore, nhưng hay báo hết tài nguyên, có chính sách thu hồi máy ít dùng, và hạn mức Ampere A1 bị giảm từ 8/2026.
+- **Không cần thẻ:** máy cũ hoặc Raspberry Pi ở nhà, hoặc cứ để máy tính này chạy (tác vụ `LifeBots`).
+Máy 1 GB nên thêm swap: `sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`.

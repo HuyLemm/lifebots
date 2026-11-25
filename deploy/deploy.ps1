@@ -87,6 +87,10 @@ try {
     Start-Sleep 15
     Remote "cd $RemoteDir && (docker compose ps || sudo docker compose ps)"
 
+    Step "Can the server reach the Vietnamese data sources? (dry run: prints, sends nothing)"
+    Remote "cd $RemoteDir && (docker compose run --rm -T price python -m price.bot --dry --now || sudo docker compose run --rm -T price python -m price.bot --dry --now) 2>&1 | head -30"
+    Write-Host "If prices are missing above, the server's country/IP may be blocked by that site (see README)." -ForegroundColor Yellow
+
     Step "Recent logs"
     Remote "cd $RemoteDir && (docker compose logs --tail 4 || sudo docker compose logs --tail 4)"
 
