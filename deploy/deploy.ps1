@@ -74,7 +74,10 @@ try {
         Step "Install Docker on the server (Ubuntu/Debian)"
         Remote "command -v docker >/dev/null 2>&1 || (curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker `$USER)"
     }
-    Remote "docker compose version >/dev/null 2>&1 || (echo 'Docker Compose missing - rerun with -InstallDocker' && exit 1)"
+    Remote "docker compose version >/dev/null 2>&1 || sudo docker compose version >/dev/null 2>&1 || (echo 'Docker Compose missing - rerun with -InstallDocker' && exit 1)"
+
+    Step "Make sure small servers have swap (1 GB RAM is tight while building images)"
+    Remote "[ `$(free -m | awk '/^Swap:/{print `$2}') -gt 0 ] || (sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile >/dev/null && sudo swapon /swapfile && (grep -q /swapfile /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null)); free -m | awk '/^(Mem|Swap):/'"
 
     Step "Upload and unpack into ~/$RemoteDir"
     Remote "mkdir -p $RemoteDir"
