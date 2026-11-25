@@ -64,3 +64,11 @@ Lưu ý: mỗi container chỉ thấy thư mục của chính nó nên cảnh b�
 - Shopee/Lazada/TikTok Shop không có nguồn miễn phí hợp lệ; bot stuff đọc kênh Telegram công khai nên giá chỉ là giá người đăng ghi.
 - Thêm bot mới: tạo folder với `bot.py` + `config.toml` + `.env`, gọi `run(Path(__file__).parent, check, giây)` từ `shared.core`.
 - Ảnh đại diện bot: `python avatars/make_avatars.py`, rồi gửi từng ảnh cho @BotFather bằng `/setuserpic`.
+
+## Triển khai lên server bằng 1 lệnh
+    .\deploy\deploy.ps1 -Server ubuntu@IP_SERVER                 # đã có Docker
+    .\deploy\deploy.ps1 -Server root@IP -InstallDocker           # cài Docker giúp (Ubuntu/Debian)
+    .\deploy\deploy.ps1 -Server ubuntu@IP -Key C:\Users\ban\.ssh\id_ed25519 -Port 22
+
+Script: dừng bot local (tránh 2 nơi cùng nhận lệnh/gửi trùng) -> đóng gói (kèm `.env` và `state.json` để bot tiếp tục, không gửi lại tin cũ) -> tải lên -> `docker compose up -d --build` -> in trạng thái. Nếu server lỗi, script **tự bật lại bot local**.
+Cập nhật code sau này: chạy lại đúng lệnh trên (chỉ build lại phần thay đổi). Muốn bật lại bot local: `Enable-ScheduledTask LifeBots; Start-ScheduledTask LifeBots` (và dừng trên server: `docker compose down`).
