@@ -14,7 +14,7 @@ import time
 
 import httpx
 
-from shared.core import State, Telegram, esc
+from shared.core import State, Telegram, esc, header
 from shared.feeds import HEADERS, contains_any
 
 log = logging.getLogger(__name__)
@@ -128,7 +128,7 @@ def format_deal(plat: str | None, channel: str, deal: dict, link: str) -> str:
     if deal["discount"]:
         facts.append(f"🔻 giảm {deal['discount']}%")
     facts_line = ("\n" + " · ".join(facts)) if facts else ""
-    return f"🛍 <b>{esc(tag)}{esc(channel)}</b>\n{body}{facts_line}\n{esc(link)}"
+    return f"{header(f'🛍 Deal {esc(tag)}· {esc(channel)}')}\n{body}{facts_line}\n{esc(link)}"
 
 
 def effective_keywords(cfg: dict, state: State) -> list[str]:

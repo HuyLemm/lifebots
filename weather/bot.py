@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from shared.core import State, Telegram, esc, get_json, run
+from shared.core import State, Telegram, esc, get_json, header, run
 from shared.health import watchdog
 
 AQI_LEVELS = [
@@ -180,7 +180,7 @@ def anomalies(d: dict, cfg: dict, hrs: int) -> list[tuple[str, float, str]]:
 def summary(d: dict, place: str, hrs: int, now: datetime) -> str:
     soon = max([p or 0 for p in d["hours_prob"][:hrs]] or [0])
     return (
-        f"📍 <b>Thông báo lúc {now:%H:%M} ({now:%d/%m})</b> · {place}\n"
+        f"{header(f'🌤 Thời tiết {place}', now)}\n"
         f"{wmo_label(d['now_code'])} · <b>{d['now']:.0f}°C</b> (cảm giác {d['feels']:.0f}°C)\n"
         f"🌧 Mưa {hrs}h tới: <b>{soon:.0f}%</b> · cả ngày: {d['rain_day_prob']:.0f}%\n"
         f"😷 AQI {d['aqi']:.0f} ({aqi_label(d['aqi'])})"
@@ -212,9 +212,13 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
     now = datetime.now()
     slot = due_slot(now, cfg.get("report_hours", [0, 8, 12, 16, 20]), state.data.get("last_report"))
 
-    parts = ([summary(d, place, hrs, now)] if (slot or args.now) else []) + [t for _, t in due]
+    with_summary = bool(slot or args.now)
+    parts = ([summary(d, place, hrs, now)] if with_summary else []) + [t for _, t in due]
     if parts:
-        tg.send("\n\n".join(parts))  # raises on failure -> nothing marked -> retried next round
+        text = "\n\n".join(parts)
+        if not with_summary:  # alerts only: still starts with the standard header
+            text = f"{header(f'🌦 Cảnh báo thời tiết {place}', now)}\n{text}"
+        tg.send(text)  # raises on failure -> nothing marked -> retried next round
         for key, _ in due:
             mark(state, key)
         if slot:

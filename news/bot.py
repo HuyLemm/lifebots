@@ -17,7 +17,7 @@ from pathlib import Path
 
 import httpx
 
-from shared.core import State, Telegram, esc, run
+from shared.core import State, Telegram, esc, header, run
 from shared.feeds import fetch_items, matches  # noqa: F401  (matches re-exported for tests)
 
 log = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def digest_message(batch: list[tuple[int, str, str, dict]]) -> str:
     for _, topic, _name, item in batch:
         line = f'• <a href="{esc(item["link"])}">{esc(item["title"])}</a>'
         by_topic.setdefault(topic, []).append(line)
-    out = [f"📰 <b>{len(batch)} tin mới</b>"]
+    out = [header(f"📰 Tin tổng hợp ({len(batch)} tin mới)")]
     for topic in [*TOPIC_ICONS, *[t for t in by_topic if t not in TOPIC_ICONS]]:
         if topic in by_topic:
             out.append(
@@ -102,7 +102,8 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
     for entry in fresh[:cap]:
         _, topic, name, item = entry
         icon = TOPIC_ICONS.get(topic, "📰")
-        tg.send(f"{icon} <b>{esc(name)}</b>\n{esc(item['title'])}\n{esc(item['link'])}")
+        kind = f"{icon} {TOPIC_NAMES.get(topic, 'Tin tức')} · {esc(name)}"
+        tg.send(f"{header(kind)}\n{esc(item['title'])}\n{esc(item['link'])}")
         mark(entry)  # only after Telegram accepted it; failures stay unseen -> retried
 
 

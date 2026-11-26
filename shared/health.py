@@ -7,10 +7,9 @@ import json
 import os
 import time
 import tomllib
-from datetime import datetime
 from pathlib import Path
 
-from shared.core import ROOT, State, Telegram, esc
+from shared.core import ROOT, State, Telegram, esc, header
 
 
 def _interval(name: str) -> int:
@@ -55,15 +54,16 @@ def watchdog(tg: Telegram, state: State, watch: list[str], my_interval: int) -> 
         if stale and not flags.get(name):
             flags[name] = True
             tg.safe_send(
-                f"🚨 Bot <b>{esc(name)}</b> không hoạt động ({age / 60:.0f} phút không cập nhật)"
+                f"{header('🚨 Cảnh báo bot')}\n"
+                f"Bot <b>{esc(name)}</b> không hoạt động ({age / 60:.0f} phút không cập nhật)"
             )
         elif not stale and flags.get(name):
             flags[name] = False
-            tg.safe_send(f"✅ Bot <b>{esc(name)}</b> đã hoạt động lại")
+            tg.safe_send(f"{header('✅ Bot')}\nBot <b>{esc(name)}</b> đã hoạt động lại")
 
 
 def heartbeat_text(names: list[str]) -> str:
-    lines = [f"✅ <b>LifeBots</b> · {datetime.now():%d/%m %H:%M}"]
+    lines = [header("✅ LifeBots đang hoạt động")]
     for n in names:
         age = bot_age(n)
         if age is None:

@@ -14,6 +14,7 @@ import sys
 import time
 import tomllib
 from collections.abc import Callable
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -75,6 +76,13 @@ def load_config(bot_dir: Path) -> dict:
 
 def esc(text: str) -> str:
     return html.escape(text, quote=False)
+
+
+def header(kind: str, now: datetime | None = None) -> str:
+    """First line of EVERY message: when it was sent and what kind of information it is.
+    Needed because delivery can be late (a scheduler wakes the bots every few minutes/hours)."""
+    now = now or datetime.now()
+    return f"📍 <b>Thông báo lúc {now:%H:%M} ({now:%d/%m})</b> · {kind}"
 
 
 def get_json(url: str, **params) -> dict:
@@ -181,7 +189,9 @@ class State:
     def source_ok(self, name: str, tg: Telegram) -> None:
         h = self.data.get("health", {}).pop(name, None)
         if h and h.get("alerted"):
-            tg.safe_send(f"✅ <b>{esc(tg.name)}</b>: nguồn “{esc(name)}” đã hoạt động lại")
+            tg.safe_send(
+                f"{header('✅ Nguồn dữ liệu')}\n<b>{esc(tg.name)}</b>: nguồn “{esc(name)}” đã hoạt động lại"
+            )
 
     def source_failed(self, name: str, err: object, tg: Telegram, threshold: int = 3) -> None:
         """Count consecutive failures; alert ONCE when a source keeps failing."""
@@ -191,7 +201,8 @@ class State:
         if h["fails"] >= threshold and not h["alerted"]:
             h["alerted"] = True
             tg.safe_send(
-                f"⚠️ <b>{esc(tg.name)}</b>: nguồn “{esc(name)}” lỗi {h['fails']} lần liên tiếp\n"
+                f"{header('⚠️ Cảnh báo nguồn dữ liệu')}\n"
+                f"<b>{esc(tg.name)}</b>: nguồn “{esc(name)}” lỗi {h['fails']} lần liên tiếp\n"
                 f"{esc(str(err)[:200])}"
             )
 

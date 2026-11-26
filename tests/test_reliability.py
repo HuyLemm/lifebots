@@ -425,3 +425,71 @@ def test_news_digest_reports_every_item_in_chunks(tmp_path, monkeypatch):
     bot.check(tg, st, args(), cfg)
     assert len(tg.sent) == 3  # 25 + 25 + 10: nothing is left for a later run
     assert sum(m.count("<a href") for m in tg.sent) == 60
+
+
+# ---------- every message starts with the standard header ----------
+
+HEADER_START = "📍 <b>Thông báo lúc "
+
+
+def test_header_format():
+    from datetime import datetime
+
+    from shared.core import header
+
+    assert header("X", datetime(2026, 11, 26, 9, 5)) == "📍 <b>Thông báo lúc 09:05 (26/11)</b> · X"
+
+
+def test_every_message_type_starts_with_the_header(tmp_path, monkeypatch):
+    from news import bot as news
+    from price.bot import build_message
+    from stuff.channels import format_deal
+    from weather import bot as weather
+
+    # price
+    tracker = {"title": "🥇 Vàng SJC", "unit": "lit", "stamp": "", "rows": [("a", "x", 1000.0)]}
+    msg, _ = build_message(tracker, {}, 0, False)
+    assert msg.startswith(HEADER_START)
+
+    # stuff deal
+    deal = {"lines": ["Bàn phím"], "price": "595K", "discount": None}
+    assert format_deal("Lazada", "Góc Săn Deal", deal, "http://x").startswith(HEADER_START)
+
+    # news: a single item and a digest
+    cfg = {"feeds": [{"name": "F", "url": "u", "topic": "tech"}], "digest_over": 3}
+    feed = {"items": []}
+    monkeypatch.setattr(news, "fetch_items", lambda url: feed["items"])
+    st, tg = State(tmp_path / "n"), FakeTG()
+    (tmp_path / "n").mkdir()
+    news.check(tg, st, args(), cfg)
+    feed["items"] = _items("one story")
+    news.check(tg, st, args(), cfg)
+    feed["items"] = _items("one story", "a", "b", "c", "d", "e")
+    news.check(tg, st, args(), cfg)
+    assert len(tg.sent) == 2 and all(m.startswith(HEADER_START) for m in tg.sent)
+
+    # weather: the summary AND an alert-only message
+    day = {"code": 95, "tmax": 33, "tmin": 25, "feels_max": 35, "yesterday_max": 33, "rain_day_prob": 10,
+           "rain_day_mm": 0, "uv": 6, "wind": 10, "hours_prob": [0] * 24, "hours_mm": [0] * 24,
+           "hours_time": [""] * 24, "aqi": 50, "pm25": 10, "now": 30, "feels": 33, "now_code": 1, "now_mm": 0}  # fmt: skip
+    monkeypatch.setattr(weather, "fetch", lambda lat, lon: day)
+    monkeypatch.setattr(weather, "watchdog", lambda *a, **k: None)
+    (tmp_path / "w").mkdir()
+    tg2 = FakeTG()
+    weather.check(
+        tg2, State(tmp_path / "w"), args(), {"latitude": 1, "longitude": 1, "report_hours": []}
+    )
+    assert tg2.sent[0].startswith(HEADER_START) and "dông" in tg2.sent[0]  # alert-only message
+    tg3 = FakeTG()
+    (tmp_path / "w2").mkdir()
+    weather.check(tg3, State(tmp_path / "w2"), args(now=True), {"latitude": 1, "longitude": 1})
+    assert tg3.sent[0].startswith(HEADER_START)  # full report
+
+
+def test_health_alerts_start_with_the_header(tmp_path):
+    st, tg = State(tmp_path), FakeTG()
+    for _ in range(3):
+        st.source_failed("sjc", "boom", tg)
+    st.source_ok("sjc", tg)
+    # FakeTG.safe_send records raw text; both the alert and the recovery carry the header
+    assert len(tg.sent) == 2 and all(m.startswith(HEADER_START) for m in tg.sent)

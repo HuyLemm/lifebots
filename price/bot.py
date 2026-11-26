@@ -16,7 +16,7 @@ import httpx
 
 from price import history
 from price.trackers import TRACKERS, fmt_delta, fmt_value
-from shared.core import State, Telegram, esc, run
+from shared.core import State, Telegram, esc, header, run
 from shared.health import heartbeat_text, watchdog
 
 log = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ def build_message(
     if not updates and not show_all:
         return None, {}
     now = now or datetime.now()
-    return f"<b>{esc(tracker['title'])}</b> · {now:%d/%m %H:%M}\n" + "\n".join(lines), updates
+    return f"{header(esc(tracker['title']), now)}\n" + "\n".join(lines), updates
 
 
 def maintenance(tg: Telegram, state: State, cfg: dict) -> None:
