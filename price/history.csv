@@ -1,0 +1,22 @@
+ts,key,label,value,unit
+2026-11-25T21:59:55,xau,XAU/USD,3458.600098,usd_oz
+2026-11-26T07:32:19,xau,XAU/USD,3571.800049,usd_oz
+2026-11-26T09:31:26,pnj:N24K:buy,Nhẫn trơn PNJ 24K · Mua,126500000.0,luong
+2026-11-26T09:31:26,pnj:N24K:sell,Nhẫn trơn PNJ 24K · Bán,132000000.0,luong
+2026-11-26T10:34:48,sjc:SJC 1L-10L:buy,SJC 1L-10L · Mua,129500000.0,luong
+2026-11-26T10:34:48,sjc:SJC 1L-10L:sell,SJC 1L-10L · Bán,134500000.0,luong
+2026-11-26T10:34:48,"sjc:Nhẫn SJC 99,99%:buy","Nhẫn SJC 99,99% · Mua",128300000.0,luong
+2026-11-26T10:34:48,"sjc:Nhẫn SJC 99,99%:sell","Nhẫn SJC 99,99% · Bán",134300000.0,luong
+2026-11-26T10:34:49,pnj:SJC:buy,Vàng miếng SJC · Mua,129500000.0,luong
+2026-11-26T10:34:49,pnj:SJC:sell,Vàng miếng SJC · Bán,134500000.0,luong
+2026-11-26T13:50:48,pnj:N24K:buy,Nhẫn trơn PNJ 24K · Mua,127000000.0,luong
+2026-11-26T13:50:48,pnj:N24K:sell,Nhẫn trơn PNJ 24K · Bán,132500000.0,luong
+2026-11-26T15:01:32,petrol:Xăng E10 RON 95 mức 5,Xăng E10 RON 95 mức 5,21050.0,lit
+2026-11-26T15:01:32,petrol:Xăng E10 RON 95 mức 3,Xăng E10 RON 95 mức 3,19050.0,lit
+2026-11-26T15:01:32,petrol:Xăng E5 RON 92 mức 2,Xăng E5 RON 92 mức 2,18390.0,lit
+2026-11-26T15:01:32,"petrol:Dầu DO 0,001S mức 5","Dầu DO 0,001S mức 5",27060.0,lit
+2026-11-26T15:01:32,"petrol:Dầu DO 0,05S mức 2","Dầu DO 0,05S mức 2",24960.0,lit
+2026-11-26T15:01:32,petrol:Dầu hỏa 2-K,Dầu hỏa 2-K,24290.0,lit
+2026-11-26T15:15:56,xag,XAG/USD,41.145,usd2
+2026-11-26T15:15:57,btc,BTC/USD,60552.738281,usd
+2026-11-26T15:15:58,brent,Brent,90.55,usd2

@@ -1,0 +1,37 @@
+{
+ "values": {
+  "sjc:SJC 1L-10L:sell": 134500000.0,
+  "petrol:Xăng E5 RON 92 mức 2": 18390.0,
+  "sjc:SJC 1L-10L:buy": 129500000.0,
+  "sjc:Nhẫn SJC 99,99%:buy": 128300000.0,
+  "sjc:Nhẫn SJC 99,99%:sell": 134300000.0,
+  "pnj:SJC:buy": 129500000.0,
+  "pnj:SJC:sell": 134500000.0,
+  "pnj:N24K:buy": 127000000.0,
+  "pnj:N24K:sell": 132500000.0,
+  "petrol:Xăng E10 RON 95 mức 5": 21050.0,
+  "petrol:Xăng E10 RON 95 mức 3": 19050.0,
+  "petrol:Dầu DO 0,001S mức 5": 27060.0,
+  "petrol:Dầu DO 0,05S mức 2": 24960.0,
+  "petrol:Dầu hỏa 2-K": 24290.0,
+  "xau": 3571.800049,
+  "usdvnd": 25765.93616,
+  "xag": 41.145,
+  "btc": 60552.738281,
+  "brent": 90.55
+ },
+ "heartbeat_day": "2026-11-26",
+ "watch": {},
+ "last_check": 1795681232.3061218,
+ "offset": 460198766,
+ "commands_set": true,
+ "health": {},
+ "petrol_remind_day": "2026-11-26",
+ "brent_ref": {
+  "value": 90.55,
+  "day": "2026-11-26"
+ },
+ "stats": {
+  "2026-11-26": 4
+ }
+}
