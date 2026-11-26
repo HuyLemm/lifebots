@@ -33,7 +33,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install
-        run: pip install -q httpx
+        run: pip install -q httpx pillow  # pillow only draws the chart pictures
 
       - name: "Restore state from the `state` branch"
         run: |
@@ -81,6 +81,26 @@ jobs:
           git add -A
           git -c user.name=lifebots -c user.email=lifebots@users.noreply.github.com commit -q -m "state $(date -u +%FT%TZ)"
           git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" state
+
+      - name: "Daily backup of the state (keeps history on the `state-backup` branch)"
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          today=$(date +%F)
+          url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          rm -rf /tmp/bk && mkdir /tmp/bk && cd /tmp/bk
+          if git clone -q --depth=1 -b state-backup "$url" . 2>/dev/null; then
+            [ "$(cat .day 2>/dev/null)" = "$today" ] && { echo "backup already made today"; exit 0; }
+          else
+            git init -q
+            git checkout -q -b state-backup
+          fi
+          [ -d /tmp/st ] && cp -r /tmp/st/. .
+          echo "$today" > .day
+          git add -A
+          git -c user.name=lifebots -c user.email=lifebots@users.noreply.github.com commit -q -m "backup $today" || exit 0
+          git push -q "$url" state-backup || echo "backup push failed (not fatal)"
 
       - name: "Keep the schedule enabled (GitHub pauses cron after 60 days of inactivity)"
         if: always()

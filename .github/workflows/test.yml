@@ -1,0 +1,30 @@
+name: tests
+
+# Every push / pull request: run the test-suite and the linter, so a broken change is seen before
+# (or right after) it reaches the bots that run from `main`.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: Asia/Ho_Chi_Minh
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -q httpx pillow pytest ruff
+      - name: Lint
+        run: ruff check .
+      - name: Tests
+        run: python -m pytest -q

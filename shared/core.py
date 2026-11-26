@@ -10,6 +10,7 @@ import html
 import json
 import logging
 import os
+import re
 import sys
 import time
 import tomllib
@@ -74,6 +75,11 @@ def load_config(bot_dir: Path) -> dict:
         return tomllib.load(f)
 
 
+def visible_len(text: str) -> int:
+    """Length Telegram counts for a caption limit: the text WITHOUT HTML tags (hrefs are free)."""
+    return len(html.unescape(re.sub(r"<[^>]+>", "", text)))
+
+
 def asset_url(name: str) -> str:
     """URL of a banner in assets/ (served from the public repo; Telegram fetches it itself).
     If it cannot be fetched, Telegram.send falls back to a plain text message."""
@@ -109,12 +115,21 @@ class Telegram:
         if not dry and self.dry:
             log.warning("BOT_TOKEN / TELEGRAM_CHAT_ID not set in this bot's .env -> printing only")
 
-    def _call(self, method: str, payload: dict, timeout: float = 20) -> dict:
+    def _call(
+        self, method: str, payload: dict, timeout: float = 20, files: dict | None = None
+    ) -> dict:
         url = f"https://api.telegram.org/bot{self.token}/{method}"
         last: Exception | None = None
         for attempt in range(3):
             try:
-                r = httpx.post(url, json=payload, timeout=timeout)
+                if files:  # multipart upload: nested values must be JSON strings
+                    form = {
+                        k: v if isinstance(v, str | int) else json.dumps(v)
+                        for k, v in payload.items()
+                    }
+                    r = httpx.post(url, data=form, files=files, timeout=max(timeout, 40))
+                else:
+                    r = httpx.post(url, json=payload, timeout=timeout)
             except httpx.TransportError as e:
                 last = e
                 time.sleep(2 * (attempt + 1))
@@ -132,30 +147,39 @@ class Telegram:
             return r.json()
         raise httpx.HTTPError(f"telegram {method} failed after retries: {last}")
 
+    sent_count = 0  # messages sent by this process (the run loop turns it into daily stats)
+
     def send(
-        self, text: str, buttons: list[list[dict]] | None = None, photo: str | None = None
+        self,
+        text: str,
+        buttons: list[list[dict]] | None = None,
+        photo: str | bytes | None = None,
     ) -> None:
-        """photo = image URL: sent as a picture with `text` as caption (<=1024 chars). If Telegram
-        cannot fetch the image, the same text goes out as a plain message, so nothing is lost."""
+        """photo = image URL (Telegram fetches it) or the JPEG/PNG bytes (uploaded): sent as a
+        picture with `text` as caption (<=1024 chars). If Telegram rejects the image, the same
+        text goes out as a plain message, so nothing is lost."""
         if self.dry:
-            print(f"--- (dry) ---\n{'[photo: ' + photo + ']' + chr(10) if photo else ''}{text}\n")
+            tag = ""
+            if photo:
+                tag = f"[photo: {photo if isinstance(photo, str) else f'{len(photo)} bytes'}]\n"
+            print(f"--- (dry) ---\n{tag}{text}\n")
+            self.sent_count += 1
             return
-        if photo and len(text) <= 1024:
+        if photo and visible_len(text) <= 1024:
             try:
-                pic: dict = {
-                    "chat_id": self.chat_id,
-                    "photo": photo,
-                    "caption": text,
-                    "parse_mode": "HTML",
-                }
+                pic: dict = {"chat_id": self.chat_id, "caption": text, "parse_mode": "HTML"}
                 if buttons:
                     pic["reply_markup"] = {"inline_keyboard": buttons}
-                self._call("sendPhoto", pic)
+                if isinstance(photo, bytes):
+                    self._call("sendPhoto", pic, files={"photo": ("chart.jpg", photo, "image/jpeg")})
+                else:
+                    self._call("sendPhoto", {**pic, "photo": photo})
+                self.sent_count += 1
                 return
             except httpx.HTTPStatusError as e:
                 if e.response.status_code != 400:
                     raise
-                log.info("image rejected by Telegram, sending text only: %s", photo)
+                log.info("image rejected by Telegram, sending text only")
         payload: dict = {
             "chat_id": self.chat_id,
             "text": text,
@@ -165,6 +189,22 @@ class Telegram:
         if buttons:
             payload["reply_markup"] = {"inline_keyboard": buttons}
         self._call("sendMessage", payload)
+        self.sent_count += 1
+
+    def send_album(self, photos: list[str]) -> None:
+        """Extra pictures of the same post (2-10 URLs). Best effort: the text message that went
+        before it is what matters, so a rejected album is only logged."""
+        photos = photos[:10]
+        if len(photos) < 2:
+            return
+        if self.dry:
+            print("--- (dry) ---\n[album]\n" + "\n".join(photos) + "\n")
+            return
+        media = [{"type": "photo", "media": p} for p in photos]
+        try:
+            self._call("sendMediaGroup", {"chat_id": self.chat_id, "media": media})
+        except httpx.HTTPError as e:
+            log.info("album not sent: %s", e)
 
     def safe_send(self, text: str) -> None:
         """For alerts about problems: never let a failed alert break the bot."""
@@ -274,6 +314,29 @@ COMMON_COMMANDS: dict[str, tuple[Handler, str]] = {
 }
 
 
+def help_text(tg: Telegram, commands: dict[str, tuple[Handler, str]]) -> str:
+    """/help: every command of this bot with its short description (+ an example if given as
+    'mô tả · ví dụ: /lệnh …' in the description)."""
+    lines = [f"🤖 <b>Bot {esc(tg.name)}</b> — các lệnh:"]
+    for cmd, (_, desc) in commands.items():
+        lines.append(f"{esc(cmd)} — {esc(desc)}")
+    lines.append("")
+    lines.append("ℹ️ <i>Bot trả lời lệnh ở lượt chạy kế tiếp (thường trong vài phút).</i>")
+    return "\n".join(lines)
+
+
+def flush_stats(state: State, tg: Telegram) -> None:
+    """Fold this process's sent-message counter into state['stats'][day] (kept 14 days)."""
+    n = getattr(tg, "sent_count", 0)
+    if n and not tg.dry:
+        stats = state.data.setdefault("stats", {})
+        day = f"{datetime.now():%Y-%m-%d}"
+        stats[day] = stats.get(day, 0) + n
+        for old in sorted(stats)[:-14]:
+            del stats[old]
+    tg.sent_count = 0
+
+
 def handle_update(
     u: dict,
     tg: Telegram,
@@ -306,7 +369,7 @@ def handle_update(
     cmd, _, rest = text.partition(" ")
     cmd = cmd.split("@")[0].lower()
     if cmd in ("/start", "/help"):
-        tg.send("Lệnh:\n" + "\n".join(f"{c} — {d}" for c, (_, d) in commands.items()))
+        tg.send(help_text(tg, commands))
         return
     entry = commands.get(cmd)
     if entry:
@@ -387,6 +450,7 @@ def run_once(
             log.exception("check failed")
             state.source_failed("check", f"{type(e).__name__}: {e}", tg)
         state.data["last_check"] = time.time()
+    flush_stats(state, tg)
     if not tg.dry:
         state.save()
 
@@ -436,6 +500,7 @@ def run(
                 log.exception("check failed")
                 state.source_failed("check", f"{type(e).__name__}: {e}", tg)
         state.data["last_check"] = time.time()
+        flush_stats(state, tg)
         if not tg.dry:  # a --dry preview must never consume the real baseline/first-run state
             state.save()
         if not args.loop:

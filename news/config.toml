@@ -5,6 +5,13 @@ interval_seconds = 300          # kiểm tra mỗi lượt chạy (~5 phút, nha
 max_per_run = 30                # tối đa mỗi lượt; công nghệ được gửi trước, phần dư gửi lượt sau
 digest_over = 0                 # 0 = mỗi tin một tin nhắn riêng (có ảnh); đặt số > 0 để gộp khi dồn tin
 
+# Tóm tắt 1-2 câu bằng AI dưới tiêu đề. MẶC ĐỊNH TẮT. Bật = enabled = true VÀ đặt secret
+# ANTHROPIC_API_KEY (GitHub Secrets / .env của bot news). Lỗi gì thì tin vẫn gửi bình thường.
+[ai]
+enabled = false
+model = "claude-haiku-5-5"
+max_per_run = 10                # tối đa số tin được tóm tắt mỗi lượt (tiết kiệm chi phí)
+
 # ---------- CÔNG NGHỆ (ưu tiên, báo hết) ----------
 [[feeds]]
 name = "VnExpress Số hoá"
@@ -21,18 +28,41 @@ priority = 1
 [[feeds]]
 name = "Tinh tế"
 url = "https://tinhte.vn/rss"
+extra_urls = ["https://tinhte.vn/rss?page=2"]   # trang 2: cửa sổ ~36 tin thay vì ~16
 topic = "tech"
 priority = 1
 
 [[feeds]]
 name = "The Verge"
-url = "https://www.theverge.com/rss/index.xml"
+url = "https://www.theverge.com/rss/index.xml"   # feed chỉ có 10 tin, không có phân trang
+extra_urls = [                                    # feed chuyên mục: có thêm tin khi tin dồn dập
+  "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+  "https://www.theverge.com/rss/reviews/index.xml",
+]
 topic = "tech"
 priority = 1
 
 [[feeds]]
 name = "Hacker News (>=300 điểm)"
-url = "https://hnrss.org/frontpage?points=300"
+url = "https://hnrss.org/newest?points=300&count=50"   # ~3 ngày tin đạt 300 điểm (frontpage chỉ 5-7 tin)
+topic = "tech"
+priority = 1
+
+[[feeds]]
+name = "Thanh Niên Công nghệ"
+url = "https://thanhnien.vn/rss/cong-nghe.rss"
+topic = "tech"
+priority = 1
+
+[[feeds]]
+name = "Tuổi Trẻ Nhịp sống số"
+url = "https://tuoitre.vn/rss/nhip-song-so.rss"
+topic = "tech"
+priority = 1
+
+[[feeds]]
+name = "Ars Technica"
+url = "https://feeds.arstechnica.com/arstechnica/index"
 topic = "tech"
 priority = 1
 
@@ -44,6 +74,27 @@ topic = "world"
 priority = 2
 keywords = ["chiến sự", "chiến tranh", "xung đột", "không kích", "tấn công", "tên lửa", "ngừng bắn", "Ukraine", "Gaza", "Israel", "Trung Đông", "Biển Đông", "Triều Tiên"]
 
+[[feeds]]
+name = "Tuổi Trẻ Thế giới"
+url = "https://tuoitre.vn/rss/the-gioi.rss"
+topic = "world"
+priority = 2
+keywords = ["chiến sự", "chiến tranh", "xung đột", "không kích", "tấn công", "tên lửa", "ngừng bắn", "Ukraine", "Gaza", "Israel", "Trung Đông", "Biển Đông", "Triều Tiên"]
+
+[[feeds]]
+name = "BBC World"
+url = "https://feeds.bbci.co.uk/news/world/rss.xml"
+topic = "world"
+priority = 2
+keywords = ["war ", "ceasefire", "airstrike", "missile", "invasion", "Ukraine", "Gaza", "Israel", "Hamas", "Iran", "Taiwan", "North Korea", "Kremlin", "NATO"]
+
+[[feeds]]
+name = "Al Jazeera"
+url = "https://www.aljazeera.com/xml/rss/all.xml"
+topic = "world"
+priority = 2
+keywords = ["war ", "ceasefire", "airstrike", "missile", "invasion", "Ukraine", "Gaza", "Israel", "Hamas", "Iran", "Taiwan", "North Korea", "Kremlin", "NATO"]
+
 # ---------- KINH TẾ ----------
 [[feeds]]
 name = "VnExpress Kinh doanh"
@@ -52,10 +103,24 @@ topic = "economy"
 priority = 2
 keywords = ["lạm phát", "lãi suất", "giá vàng", "tỷ giá", "suy thoái", "GDP", "Fed", "giá xăng", "chứng khoán", "VN-Index", "thuế", "ngân hàng nhà nước"]
 
+[[feeds]]
+name = "Dân trí Kinh doanh"
+url = "https://dantri.com.vn/rss/kinh-doanh.rss"
+topic = "economy"
+priority = 2
+keywords = ["lạm phát", "lãi suất", "giá vàng", "tỷ giá", "suy thoái", "GDP", "Fed", "giá xăng", "chứng khoán", "VN-Index", "thuế", "ngân hàng nhà nước"]
+
 # ---------- VỤ ÁN ----------
 [[feeds]]
 name = "VnExpress Pháp luật"
 url = "https://vnexpress.net/rss/phap-luat.rss"
+topic = "crime"
+priority = 3
+keywords = ["vụ án", "đại án", "khởi tố", "bắt tạm giam", "truy nã", "lừa đảo", "giết người", "bắt giữ"]
+
+[[feeds]]
+name = "Dân trí Pháp luật"
+url = "https://dantri.com.vn/rss/phap-luat.rss"
 topic = "crime"
 priority = 3
 keywords = ["vụ án", "đại án", "khởi tố", "bắt tạm giam", "truy nã", "lừa đảo", "giết người", "bắt giữ"]

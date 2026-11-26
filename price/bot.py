@@ -16,9 +16,20 @@ from pathlib import Path
 import httpx
 
 from price import history
+from price.extras import (
+    check_targets,
+    cmd_bao,
+    cmd_bieudo,
+    cmd_dsbao,
+    cmd_xoabao,
+    extras_for,
+    petrol_reminder,
+    token_warning,
+)
+from price.morning import send_morning
 from price.trackers import TRACKERS, fmt_delta, fmt_value
 from shared.core import State, Telegram, asset_url, esc, header, run
-from shared.health import heartbeat_text, watchdog
+from shared.health import heartbeat_text, stats_summary, watchdog
 
 log = logging.getLogger(__name__)
 FETCH_ERRORS = (
@@ -31,6 +42,7 @@ FETCH_ERRORS = (
     TypeError,
 )
 WATCHED = ["news", "weather", "stuff"]
+OPTIONAL = {"brent", "silver", "bitcoin"}  # nice-to-have prices: slow to alert when they fail
 
 
 LEGEND = {  # one short line that explains the numbers
@@ -39,6 +51,13 @@ LEGEND = {  # one short line that explains the numbers
     "lit": "Giá bán lẻ, đơn vị: đồng/lít",
     "usd_oz": "Giá 1 ounce (31,1 g) vàng, tính bằng USD",
     "usd_vnd": "1 USD đổi được bao nhiêu đồng (tỷ giá tham khảo, ngân hàng có thể chênh)",
+    "usd": "Giá 1 đồng tiền số, tính bằng USD",
+    "usd2": "Giá tính bằng USD",
+}
+LEGEND_BY_TRACKER = {
+    "silver": "Giá 1 ounce bạc (31,1 g), tính bằng USD",
+    "bitcoin": "Giá 1 Bitcoin (BTC), tính bằng USD",
+    "brent": "Giá 1 thùng dầu thô Brent, USD · ảnh hưởng tới giá xăng dầu trong nước",
 }
 BANNERS = {
     "sjc": "price_gold",
@@ -46,6 +65,9 @@ BANNERS = {
     "petrol": "price_petrol",
     "world_gold": "price_world",
     "usd_vnd": "price_usd",
+    "silver": "price_silver",
+    "bitcoin": "price_btc",
+    "brent": "price_oil",
 }
 
 
@@ -61,6 +83,8 @@ def build_message(
     show_all: bool,
     now: datetime | None = None,
     why: Callable[[int], str] | None = None,
+    extras: list[str] | None = None,
+    legend: str | None = None,
 ) -> tuple[str | None, dict[str, float]]:
     """Pure: returns (message or None, {key: new_value} to commit once the message is sent).
     `why(direction)` (+1 rose / -1 fell) gives the one-line 'due to' note for a real change."""
@@ -87,8 +111,9 @@ def build_message(
     notes = []
     if direction and why and (reason := why(1 if direction > 0 else -1)):
         notes.append(reason)
-    if unit in LEGEND:
-        notes.append(f"ℹ️ <i>{esc(LEGEND[unit])}</i>")
+    notes += extras or []
+    if legend or unit in LEGEND:
+        notes.append(f"ℹ️ <i>{esc(legend or LEGEND[unit])}</i>")
     body = "\n".join(lines) + ("\n\n" + "\n".join(notes) if notes else "")
     return f"{header(esc(tracker['title']), now)}\n{stamp}{body}", updates
 
@@ -145,16 +170,27 @@ def explain(name: str, ctx: dict, tracker: dict) -> Callable[[int], str]:
     return why
 
 
+def _no_brent(cfg: dict) -> dict:
+    raise KeyError("brent tracker not available")
+
+
 def maintenance(tg: Telegram, state: State, cfg: dict) -> None:
-    """Daily heartbeat + Monday weekly summary + watching the other bots."""
+    """Daily heartbeat + Monday weekly summary/chart/stats + reminders + watching other bots."""
     now = datetime.now()
     hour, today = cfg.get("heartbeat_hour", 9), f"{now:%Y-%m-%d}"
     if hour >= 0 and now.hour >= hour and state.data.get("heartbeat_day") != today:
         text = heartbeat_text(["price", *WATCHED])
-        if now.weekday() == 0 and (weekly := history.weekly_summary()):
+        monday = now.weekday() == 0
+        if monday and (weekly := history.weekly_summary()):
             text += "\n\n" + weekly
+        if monday and (stats := stats_summary(["price", *WATCHED])):
+            text += "\n\n" + stats
         tg.send(text)
-        state.data["heartbeat_day"] = today
+        state.data["heartbeat_day"] = today  # marked first: a chart problem must not repeat this
+        if monday:
+            cmd_bieudo(tg, state, None, "sjc 7")  # the week at a glance (no-op without history)
+    petrol_reminder(tg, state, TRACKERS.get("brent", _no_brent), now)
+    token_warning(tg, state, cfg)
     watchdog(tg, state, WATCHED, cfg.get("interval_seconds", 60))
 
 
@@ -170,11 +206,15 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
             if not tracker["rows"]:
                 raise ValueError("no prices parsed (did the source change its layout?)")
         except FETCH_ERRORS as e:
-            state.source_failed(name, f"{type(e).__name__}: {e}", tg)
+            # extras (oil) are allowed to be down for hours before they are worth an alert
+            state.source_failed(
+                name, f"{type(e).__name__}: {e}", tg, threshold=16 if name in OPTIONAL else 3
+            )
             continue
         state.source_ok(name, tg)
         fetched[name] = (tcfg, tracker)
-    ctx = market_context({n: t for n, (_, t) in fetched.items()}, prev)
+    trackers = {n: t for n, (_, t) in fetched.items()}
+    ctx = market_context(trackers, prev)
     for name, (tcfg, tracker) in fetched.items():
         msg, updates = build_message(
             tracker,
@@ -182,6 +222,8 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
             tcfg.get("min_change_pct", 0),
             args.now,
             why=explain(name, ctx, tracker),
+            extras=extras_for(name, tracker, trackers),
+            legend=LEGEND_BY_TRACKER.get(name),
         )
         if msg:
             # raises on failure -> prev untouched -> retried next round
@@ -190,11 +232,22 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
             if not tg.dry:
                 labels = {k: lbl for k, lbl, _ in tracker["rows"]}
                 history.append([(k, labels[k], v, tracker["unit"]) for k, v in updates.items()])
+    values = {k: (v, label, t["unit"]) for t in trackers.values() for k, label, v in t["rows"]}
+    check_targets(tg, state, values)  # your own thresholds (/bao), evaluated on every run
+    send_morning(tg, state, cfg, trackers)  # one briefing a day (price + weather + headlines)
     maintenance(tg, state, cfg)
 
 
+COMMANDS = {
+    "/bao": (cmd_bao, "Đặt cảnh báo giá · ví dụ: /bao sjc 130 hoặc /bao btc trên 70000"),
+    "/dsbao": (cmd_dsbao, "Xem các cảnh báo giá đã đặt"),
+    "/xoabao": (cmd_xoabao, "Xoá cảnh báo · ví dụ: /xoabao 2 hoặc /xoabao all"),
+    "/bieudo": (cmd_bieudo, "Biểu đồ giá · ví dụ: /bieudo sjc 30 (mã: sjc, pnj, xau, usd, ron95...)"),
+}
+
+
 def main() -> None:
-    run(Path(__file__).parent, check, 60)
+    run(Path(__file__).parent, check, 60, COMMANDS)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,10 @@ def parse_time(value: str | None) -> datetime | None:
         try:
             dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
-            return None
+            try:  # Tuổi Trẻ: '11/26/2026 1:03:00 PM' (US order, Vietnam local time, no zone)
+                return datetime.strptime(value, "%m/%d/%Y %I:%M:%S %p").replace(tzinfo=VN)
+            except ValueError:
+                return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
     return dt.astimezone(VN)
@@ -89,7 +92,7 @@ def fetch_items(url: str) -> list[dict]:
     for it in root.iter("item"):  # RSS
         items.append(
             {
-                "title": (it.findtext("title") or "").strip(),
+                "title": html.unescape((it.findtext("title") or "").strip()),  # Thanh Niên: &igrave;
                 "link": (it.findtext("link") or "").strip(),
                 "text": TAG_RE.sub(" ", it.findtext("description") or ""),
                 "published": parse_time(it.findtext("pubDate")),
@@ -100,7 +103,7 @@ def fetch_items(url: str) -> list[dict]:
         link = e.find(f"{ATOM}link")
         items.append(
             {
-                "title": (e.findtext(f"{ATOM}title") or "").strip(),
+                "title": html.unescape((e.findtext(f"{ATOM}title") or "").strip()),
                 "link": link.get("href", "") if link is not None else "",
                 "text": TAG_RE.sub(" ", e.findtext(f"{ATOM}content") or ""),
                 "published": parse_time(

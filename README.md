@@ -4,7 +4,7 @@ Bốn bot Telegram, mỗi bot một folder riêng (token, config, trạng thái 
 
 | Folder | Làm gì |
 |---|---|
-| `price/` | Giá vàng (SJC, PNJ, thế giới), xăng dầu Petrolimex, tỷ giá USD/VND; báo ngay khi giá cập nhật; lưu lịch sử, tóm tắt tuần |
+| `price/` | Giá vàng (SJC, PNJ, thế giới), bạc, Bitcoin, dầu Brent, xăng dầu Petrolimex, tỷ giá USD/VND; báo khi giá đổi kèm lý do (đối chiếu số liệu), chênh mua–bán, đỉnh/đáy 30 ngày; cảnh báo theo ngưỡng riêng, biểu đồ, nhắc kỳ điều hành xăng thứ Năm, bản tin buổi sáng 7h, thống kê tuần |
 | `news/` | Tin công nghệ (ưu tiên) + chiến tranh, kinh tế, vụ án từ RSS; lọc trùng giữa các báo; nhiều tin cùng lúc gộp thành 1 bản tổng hợp |
 | `weather/` | Báo cáo thời tiết 0h/8h/12h/16h/20h + cảnh báo bất thường bất cứ lúc nào (mưa, dông, nóng, UV, gió, AQI...) |
 | `stuff/` | Sản phẩm giảm giá (kèm giá) trên Shopee, Lazada, TikTok Shop, đọc từ kênh Telegram săn sale công khai, lọc theo sở thích |
@@ -32,8 +32,12 @@ Mỗi folder bot có: `bot.py`, `config.toml` (chỉnh thông số), `.env` (tok
 - Log: `logs/<bot>.log` (xoay vòng 1MB x 3), lỗi khởi động: `logs/<bot>.stderr.log`.
 
 ## Điều khiển ngay trong Telegram
-Mọi bot: `/status` (tình trạng), `/now` (gửi ngay bản hiện tại), `/pause`, `/resume`. Chỉ chat của bạn (`TELEGRAM_CHAT_ID`) được nghe lệnh.
-Bot **stuff**: `/keywords`, `/add <từ>`, `/del <từ>`, hoặc bấm nút 🚫 dưới tin để bỏ từ khoá đã khớp. Thay đổi lưu trong `state.json`, không cần sửa file.
+Mọi bot: `/help` (danh sách lệnh), `/status` (tình trạng), `/now` (gửi ngay bản hiện tại), `/pause`, `/resume`. Chỉ chat của bạn (`TELEGRAM_CHAT_ID`) được nghe lệnh.
+Bot **price**: `/bao sjc 130` (báo khi SJC bán ra ≤ 130 triệu; `/bao btc trên 70000` báo khi ≥), `/dsbao`, `/xoabao <số|all>`, `/bieudo sjc 30` (biểu đồ 30 ngày). Mã: sjc, nhan, pnj, pnj24k, xau, usd, bac, btc, brent, ron95, ron92, do.
+Bot **stuff**: `/keywords`, `/add <từ>`, `/del <từ>`, hoặc bấm nút 🚫 dưới tin để bỏ từ khoá đã khớp. Thêm: `/theodoi <từ>` (deal chứa từ này luôn được báo, gắn 🔥, gửi trước), `/botheodoi`, `/dstheodoi`; `/chan <từ>` (không bao giờ báo deal chứa từ này), `/bochan`, `/dschan`; `/tincay <hãng>` (cộng điểm ⭐ và gắn ✅), `/botincay`, `/dstincay`. Deal có điểm ⭐ 0–5, dòng 📉 "rẻ hơn lần trước", ⏳ hạn dùng và nhắc ⏰ trước khi hết hạn; `min_score` trong config (mặc định 0 = không bỏ deal nào).
+Bot **news**: `/tat <chủ đề>`, `/bat <chủ đề>`, `/chude` (công nghệ, thế giới, kinh tế, vụ án); `/chan <từ>`, `/bochan`, `/tuchan`; `/uutien <từ>` (gắn 🔥, gửi trước, bỏ qua lọc từ khoá của nguồn), `/bouutien`, `/dsuutien`; nút **📌 Đọc sau** dưới mỗi tin, `/doclai`, `/xoadoclai` (Chủ nhật 19h tự nhắc danh sách). Tóm tắt AI tuỳ chọn: `[ai] enabled = true` + secret `ANTHROPIC_API_KEY` (mặc định tắt).
+Bot **weather**: `/diadiem`, `/them <tên>` (tra toạ độ tự động, tối đa 4 nơi thêm), `/bo <tên>`; nhắc trước khi ra đường qua `commute_times` trong config.
+Thay đổi bằng lệnh lưu trong `state.json`, không cần sửa file.
 
 ## Độ tin cậy (đã xử lý)
 - Tin chỉ được đánh dấu "đã báo" **sau khi Telegram nhận thành công**; lỗi thì thử lại, không mất tin. Telegram 429/5xx tự thử lại.
@@ -81,7 +85,7 @@ Bot chỉ gọi ra ngoài, **không cần mở cổng nào**, và 4 bot dùng kh
 Máy 1 GB nên thêm swap: `sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`.
 
 ## Chạy bằng GitHub Actions (không thẻ, không server)
-Bot chạy theo lịch trên máy chủ miễn phí của GitHub, `git push` là deploy. Đánh đổi: **chạy mỗi ~5 phút, hay trễ 5–30 phút**, lệnh Telegram (`/status`...) trả lời ở lượt chạy kế tiếp.
+Bot chạy theo lịch trên máy chủ miễn phí của GitHub, `git push` là deploy. Đánh đổi: lệnh Telegram (`/status`...) trả lời ở lượt chạy kế tiếp, và **lịch `schedule` của GitHub rất thưa** (có thể chỉ vài lượt mỗi ngày). Vì vậy dùng thêm **cron-job.org** (miễn phí) gọi API `workflow_dispatch` mỗi 15 phút, xem mục dưới.
 
     winget install --id GitHub.cli -e      # 1 lần; mở terminal mới
     gh auth login                          # 1 lần
@@ -89,7 +93,15 @@ Bot chạy theo lịch trên máy chủ miễn phí của GitHub, `git push` là
 
 Script tạo repo **công khai** (gói free chỉ không giới hạn phút chạy với repo công khai), đưa token vào GitHub Secrets (mã hoá, không nằm trong code), nạp trạng thái hiện tại, dừng bot local (tránh hai nơi cùng nhận lệnh) và chạy lượt đầu. Công khai: code và `config.toml` (từ khoá, kênh). Bí mật: token, chat id.
 - Workflow: `.github/workflows/lifebots.yml`. Chế độ chạy: `python -m <bot>.bot --once` (mỗi bot chỉ kiểm tra khi đến hạn `interval_seconds` của nó).
-- Trạng thái nằm ở nhánh `state` (1 commit, ghi đè mỗi lượt nên không phình).
+- Trạng thái nằm ở nhánh `state` (1 commit, ghi đè mỗi lượt nên không phình). Mỗi ngày một bản **sao lưu** được thêm vào nhánh `state-backup` (có lịch sử, khôi phục bằng cách checkout file từ nhánh đó).
+- Mỗi lần push, workflow `tests` chạy `ruff` + `pytest` (tab Actions). Biểu đồ cần Pillow, workflow tự cài.
+
+### cron-job.org (lịch đều đặn)
+1. GitHub → Settings → Developer settings → Fine-grained token: chỉ repo này, quyền **Actions: Read and write**, hạn 1 năm.
+2. cron-job.org → Create cronjob: URL `https://api.github.com/repos/<user>/<repo>/actions/workflows/lifebots.yml/dispatches`, mỗi 15 phút, method **POST**, body `{"ref":"main"}`, header `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`, `Content-Type: application/json`, `X-GitHub-Api-Version: 2022-11-28`. Thành công = HTTP 204.
+3. Settings của cron-job.org: bật **thông báo email khi job lỗi** (token hết hạn, GitHub từ chối...).
+4. Ghi ngày hết hạn token vào `cron_token_expires` trong `price/config.toml`: bot price nhắc mỗi ngày trong 14 ngày cuối.
+- Lưu ý điều khoản: GitHub cấm dùng Actions như "serverless computing"; tải ở đây rất nhẹ nhưng vẫn là vùng xám. Phương án dự phòng: máy ảo + `deploy/deploy.ps1`.
 - Xem log: tab **Actions** trên GitHub. Chạy tay: `gh workflow run lifebots.yml`.
 - Lịch của GitHub bị tạm dừng nếu repo không hoạt động 60 ngày; workflow có bước tự bật lại, nhưng nếu thấy bot im lặng hãy vào tab Actions bấm **Enable workflow**.
 - Quay lại máy local: `Enable-ScheduledTask LifeBots; Start-ScheduledTask LifeBots` và tắt workflow trên GitHub (tránh hai nơi cùng chạy).

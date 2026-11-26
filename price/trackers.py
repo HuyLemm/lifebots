@@ -4,13 +4,18 @@ Units: luong (VND per luong), lit (VND per litre), usd_oz, usd_vnd.
 """
 
 import re
+from datetime import datetime
 
 import httpx
 
 from shared.core import get_json
-from shared.feeds import HEADERS, parse_time
+from shared.feeds import HEADERS, VN, parse_time
 
 OUNCE_G, LUONG_G = 31.1035, 37.5
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+}
 
 
 def stamp_text(dt) -> str:
@@ -30,6 +35,16 @@ SJC_BACKUP = {
 }  # vang.today code -> same row tag
 
 
+def changes_today(code: str = "SJL1L10") -> dict:
+    """How often vang.today saw this price change today: {'times': 2, 'day_change_sell': 400000}.
+    (It only counts the changes, it does not list them.) {} on any problem."""
+    try:
+        day = get_json(VANGTODAY_URL, type=code, days=1)["history"][0]["prices"][code]
+        return {"times": int(day["updates"]), "day_change_sell": float(day["day_change_sell"])}
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError):
+        return {}
+
+
 def sjc_backup() -> dict:
     """SJC prices relayed by vang.today - used when sjc.com.vn refuses the caller (e.g. 403
     for datacenter IPs such as GitHub's runners). Same row keys, so no false 'price changed'."""
@@ -43,7 +58,13 @@ def sjc_backup() -> dict:
         if p:
             rows.append((f"sjc:{tag}:buy", f"{tag} · Mua", float(p["buy"])))
             rows.append((f"sjc:{tag}:sell", f"{tag} · Bán", float(p["sell"])))
-    return {"title": "🥇 Vàng SJC (HCM)", "unit": "luong", "stamp": stamp, "rows": rows}
+    return {
+        "title": "🥇 Vàng SJC (HCM)",
+        "unit": "luong",
+        "stamp": stamp,
+        "rows": rows,
+        "changes_today": changes_today(),
+    }
 
 
 def sjc(cfg: dict) -> dict:
@@ -135,12 +156,63 @@ def usd_vnd(cfg: dict) -> dict:
     }
 
 
+def silver(cfg: dict) -> dict:
+    j = get_json("https://api.gold-api.com/price/XAG")
+    return {
+        "title": "🥈 Bạc thế giới",
+        "unit": "usd2",
+        "stamp": stamp_text(parse_time(j.get("updatedAt"))),
+        "rows": [("xag", "XAG/USD", j["price"])],
+    }
+
+
+def bitcoin(cfg: dict) -> dict:
+    j = get_json("https://api.gold-api.com/price/BTC")
+    return {
+        "title": "🪙 Bitcoin",
+        "unit": "usd",
+        "stamp": stamp_text(parse_time(j.get("updatedAt"))),
+        "rows": [("btc", "BTC/USD", j["price"])],
+    }
+
+
+def brent(cfg: dict) -> dict:
+    """Brent crude (USD/barrel) from Yahoo's public chart endpoint."""
+    last: Exception | None = None
+    for host in ("query2", "query1"):  # Yahoo rate-limits by host and rejects non-browser agents
+        try:
+            r = httpx.get(
+                f"https://{host}.finance.yahoo.com/v8/finance/chart/BZ=F",
+                params={"range": "1d", "interval": "1d"},
+                headers=BROWSER_HEADERS,
+                timeout=20,
+            )
+            r.raise_for_status()
+            meta = r.json()["chart"]["result"][0]["meta"]
+            break
+        except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
+            last = e
+    else:
+        raise last or ValueError("brent unavailable")
+    ts = meta.get("regularMarketTime")
+    when = datetime.fromtimestamp(ts, tz=VN) if ts else None
+    return {
+        "title": "🛢 Dầu thô Brent",
+        "unit": "usd2",
+        "stamp": stamp_text(when),
+        "rows": [("brent", "Brent", float(meta["regularMarketPrice"]))],
+    }
+
+
 TRACKERS = {
     "sjc": sjc,
     "pnj": pnj,
     "petrol": petrol,
     "world_gold": world_gold,
     "usd_vnd": usd_vnd,
+    "silver": silver,
+    "bitcoin": bitcoin,
+    "brent": brent,
 }
 
 
@@ -149,6 +221,8 @@ def fmt_value(unit: str, v: float) -> str:
         "luong": f"{v / 1e6:,.2f} tr",
         "lit": f"{v:,.0f}đ",
         "usd_oz": f"${v:,.0f}",
+        "usd": f"${v:,.0f}",
+        "usd2": f"${v:,.2f}",
         "usd_vnd": f"{v:,.0f}",
     }[unit]
 
@@ -158,5 +232,7 @@ def fmt_delta(unit: str, d: float) -> str:
         "luong": f"{d / 1e3:+,.0f}k" if abs(d) < 1e6 else f"{d / 1e6:+,.1f} tr",
         "lit": f"{d:+,.0f}đ",
         "usd_oz": f"{d:+,.1f}$",
+        "usd": f"{d:+,.0f}$",
+        "usd2": f"{d:+,.2f}$",
         "usd_vnd": f"{d:+,.0f}",
     }[unit]

@@ -19,3 +19,21 @@ wind_kmh = 40                   # gió >= 40 km/h
 temp_swing_c = 5                # nhiệt độ cao nhất lệch hôm qua >= 5°C
 aqi_alert = 150                 # AQI (US) >= 150 (xấu)
 cooldown_hours = 4              # "sắp mưa"/AQI không lặp lại trong 4 giờ
+
+# Nhắc trước khi ra đường (chỉ cho địa điểm đầu tiên). [] = tắt.
+# Mỗi giờ nhắc chỉ gửi nếu trong commute_look_hours giờ tới có mưa / dông / nóng / không khí kém,
+# còn bình thường thì im lặng. Lượt chạy trễ vẫn nhắc trong ~2 giờ sau giờ đã đặt.
+commute_times = []              # ví dụ: ["07:00", "17:30"]
+commute_look_hours = 2
+# commute_heat_c = 35           # nóng: nhiệt độ cảm giác hiện tại >= 35°C
+# commute_aqi = 101             # không khí kém: AQI >= 101
+
+# Dự báo 2 ngày tới (mai, kia) gắn vào bản tin đầu tiên từ giờ này trở đi, mỗi ngày một lần
+forecast_hour = 8
+
+# Thêm địa điểm khác (mỗi nơi có cooldown/bản tin riêng). Cũng có thể dùng lệnh /them Đà Nẵng.
+# Phần [[places]] phải nằm CUỐI file (sau các khoá ở trên).
+# [[places]]
+# name = "Đà Nẵng"
+# latitude = 16.05
+# longitude = 108.20

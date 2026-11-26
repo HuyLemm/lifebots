@@ -1,5 +1,8 @@
 # Bot giá: báo mỗi khi giá cập nhật. Chỉnh ở đây, không cần sửa code.
 interval_seconds = 60           # kiểm tra mỗi phút: giá vừa đổi là báo ngay
+cron_token_expires = "2027-11-26"  # ngày hết hạn token GitHub của cron-job.org (nhắc trước 14 ngày)
+token_warn_days = 14
+morning_hour = 7                # bản tin buổi sáng (giá + thời tiết + tin nổi bật) lúc 7h; -1 = tắt
 heartbeat_hour = 9             # mỗi ngày gửi bản tin "LifeBots còn sống" lúc 9h (-1 = tắt); thứ Hai kèm giá tuần qua
 
 # enabled = bật/tắt theo dõi
@@ -26,3 +29,15 @@ min_change_pct = 1.0
 [trackers.usd_vnd]              # Tỷ giá USD/VND
 enabled = true
 min_change_pct = 0.3
+
+[trackers.silver]               # Bạc thế giới (USD/ounce)
+enabled = true
+min_change_pct = 1.5
+
+[trackers.bitcoin]              # Bitcoin (USD)
+enabled = true
+min_change_pct = 3.0
+
+[trackers.brent]                # Dầu thô Brent (USD/thùng): dùng gợi ý xu hướng giá xăng mỗi thứ Năm
+enabled = true
+min_change_pct = 3.0
