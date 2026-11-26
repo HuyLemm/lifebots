@@ -150,6 +150,29 @@ def drop_button(keyword: str | None) -> list[list[dict]] | None:
     return [[{"text": f"🚫 Bỏ từ khoá “{keyword}”", "callback_data": data}]]
 
 
+MAX_PAGES = 12  # ~8-20 posts per page: enough to cover a busy channel for about a day
+
+
+def fetch_posts(handle: str, seen: dict, max_pages: int = MAX_PAGES) -> list[dict]:
+    """Newest page first, then older pages (?before=<oldest id>) until we reach a post we already
+    know. A scheduler that only wakes the bot every few hours therefore still sees everything
+    posted in between, instead of just the latest ~20 posts."""
+    posts: list[dict] = []
+    before: int | None = None
+    for _ in range(max_pages):
+        url = f"https://t.me/s/{handle}" + (f"?before={before}" if before else "")
+        r = httpx.get(url, headers=HEADERS, timeout=20, follow_redirects=True)
+        r.raise_for_status()
+        page = parse_channel(r.text)
+        if not page:
+            break
+        posts += page
+        if any(p["id"] in seen for p in page):
+            break  # reached known territory: nothing older is new
+        before = min(int(p["id"].rsplit("/", 1)[1]) for p in page)
+    return posts
+
+
 def check_channels(tg: Telegram, state: State, args, cfg: dict) -> None:
     channels = cfg.get("channels", [])
     if not channels:
@@ -169,11 +192,7 @@ def check_channels(tg: Telegram, state: State, args, cfg: dict) -> None:
     for ch in channels:
         handle = ch["handle"].lstrip("@")
         try:
-            r = httpx.get(
-                f"https://t.me/s/{handle}", headers=HEADERS, timeout=20, follow_redirects=True
-            )
-            r.raise_for_status()
-            posts = parse_channel(r.text)
+            posts = fetch_posts(handle, seen, 1 if seeding else MAX_PAGES)
         except httpx.HTTPError as e:
             state.source_failed(f"kênh {handle}", f"{type(e).__name__}: {e}", tg)
             continue
@@ -212,7 +231,7 @@ def check_channels(tg: Telegram, state: State, args, cfg: dict) -> None:
     if seeding:
         log.info("channels first run: remembered %d posts, nothing sent.", len(seen))
         return
-    for post_id, msg, buttons, pkey in todo[:cap]:
+    for post_id, msg, buttons, pkey in reversed(todo[:cap]):  # oldest first
         tg.send(msg, buttons)  # raises on failure -> stays unseen -> retried next round
         seen[post_id] = True
         recent[pkey] = now

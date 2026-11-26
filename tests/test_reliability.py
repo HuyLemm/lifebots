@@ -374,3 +374,54 @@ def test_health_uses_last_check_not_file_mtime(tmp_path, monkeypatch):
     (tmp_path / "x" / "state.json").write_text(json.dumps({"last_check": time.time() - 500}))
     monkeypatch.setattr(health, "ROOT", tmp_path)
     assert 480 < health.bot_age("x") < 560
+
+
+def test_stuff_catches_up_after_a_long_gap_by_paging_back(tmp_path, monkeypatch):
+    """The scheduler slept for hours: older pages are read until a known post is reached."""
+    from stuff import channels
+
+    requested = []
+    pages = {
+        None: _page(*[(f"a/{i}", "x") for i in range(61, 81)]),  # newest page, nothing known
+        61: _page(*[(f"a/{i}", "x") for i in range(41, 61)]),  # older page
+        41: _page(*[(f"a/{i}", "x") for i in range(21, 41)]),  # contains a known post -> stop
+        21: _page(*[(f"a/{i}", "x") for i in range(1, 21)]),  # must NOT be requested
+    }
+
+    def fake_get(url, **k):
+        before = int(url.split("before=")[1]) if "before=" in url else None
+        requested.append(before)
+        return httpx.Response(200, text=pages[before], request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(channels.httpx, "get", fake_get)
+    posts = channels.fetch_posts("a", {"a/30": True})
+    assert requested == [None, 61, 41]  # stopped at the page holding the known post
+    assert len(posts) == 60 and {p["id"] for p in posts} >= {"a/80", "a/41", "a/21"}
+
+
+def test_stuff_first_run_reads_one_page_only(tmp_path, monkeypatch):
+    from stuff import channels
+
+    calls = []
+
+    def fake_get(url, **k):
+        calls.append(url)
+        return httpx.Response(200, text=_page(("a/9", "x")), request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(channels.httpx, "get", fake_get)
+    channels.fetch_posts("a", {}, max_pages=1)
+    assert len(calls) == 1
+
+
+def test_news_digest_reports_every_item_in_chunks(tmp_path, monkeypatch):
+    from news import bot
+
+    cfg = {"feeds": [{"name": "F", "url": "u", "topic": "tech"}], "digest_over": 3}
+    feed = {"items": []}
+    monkeypatch.setattr(bot, "fetch_items", lambda url: feed["items"])
+    st, tg = State(tmp_path), FakeTG()
+    bot.check(tg, st, args(), cfg)
+    feed["items"] = _items(*[f"story number {i}" for i in range(60)])
+    bot.check(tg, st, args(), cfg)
+    assert len(tg.sent) == 3  # 25 + 25 + 10: nothing is left for a later run
+    assert sum(m.count("<a href") for m in tg.sent) == 60

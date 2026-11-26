@@ -93,10 +93,11 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
         titles[norm_title(entry[3]["title"])] = now
 
     if len(fresh) > cfg.get("digest_over", 6):
-        batch = fresh[:25]
-        tg.send(digest_message(batch))  # one message instead of a flood
-        for entry in batch:
-            mark(entry)
+        for i in range(0, len(fresh), 25):  # every item gets reported, 25 per message
+            batch = fresh[i : i + 25]
+            tg.send(digest_message(batch))
+            for entry in batch:
+                mark(entry)
         return
     for entry in fresh[:cap]:
         _, topic, name, item = entry

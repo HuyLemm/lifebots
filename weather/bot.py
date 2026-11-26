@@ -187,19 +187,18 @@ def summary(d: dict, place: str, hrs: int, now: datetime) -> str:
     )
 
 
-def due_slot(
-    now: datetime, report_hours: list[int], last: str | None, grace_hours: int = 2
-) -> str | None:
-    """Slot key like '2026-11-25-12' for a report hour that is due and not yet sent.
+def due_slot(now: datetime, report_hours: list[int], last: str | None) -> str | None:
+    """Slot key like '2026-11-25-12' for the latest report hour that has passed and is unsent.
 
-    A slot stays due for `grace_hours` (default: its own hour + the next), so a late scheduler
-    (GitHub cron can be hours late) still delivers the report, labelled with the real time.
+    A late scheduler (GitHub cron can be hours late) still delivers the report at its first run
+    after the slot, labelled with the real time; if several slots were missed only the latest is
+    sent (an old forecast is useless).
     """
-    for slot in sorted(report_hours, reverse=True):
-        if 0 <= now.hour - slot < grace_hours:
-            key = f"{now:%Y-%m-%d}-{slot}"
-            return None if key == last else key
-    return None
+    passed = [h for h in sorted(report_hours) if h <= now.hour]
+    if not passed:
+        return None
+    key = f"{now:%Y-%m-%d}-{passed[-1]}"
+    return None if key == last else key
 
 
 def check(tg: Telegram, state: State, args, cfg: dict) -> None:

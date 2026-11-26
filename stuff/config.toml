@@ -1,7 +1,7 @@
 # Bot Stuff: săn sale CHỈ từ Shopee, Lazada, TikTok Shop (qua các kênh Telegram công khai).
 # Chỉnh ở đây, không cần sửa code.
 interval_seconds = 300          # kiểm tra mỗi 5 phút
-max_per_run = 8                 # tối đa mỗi lượt
+max_per_run = 30                # tối đa mỗi lượt (lịch thưa thì dồn nhiều deal một lúc, cần đủ chỗ để báo hết)
 
 # Chỉ lấy bài có link của các sàn này (bài không có link sàn nào sẽ bị bỏ)
 channel_platforms = ["Shopee", "Lazada", "TikTok Shop"]
