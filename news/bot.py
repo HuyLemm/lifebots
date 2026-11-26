@@ -111,13 +111,14 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
         return
 
     fresh.sort(key=lambda f: f[0])  # tech (priority 1) first; sort is stable
-    cap = cfg.get("max_per_run", 10)
+    cap = cfg.get("max_per_run", 30)  # the rest stays unseen and goes out on the next run
 
     def mark(entry: tuple[int, str, str, dict]) -> None:
         seen[entry[3]["link"]] = True
         titles[norm_title(entry[3]["title"])] = now
 
-    if len(fresh) > cfg.get("digest_over", 6):
+    digest_over = cfg.get("digest_over", 0)  # 0 = never merge: every story is its own message
+    if digest_over and len(fresh) > digest_over:
         for batch in digest_chunks(fresh):  # every item is reported, as many messages as needed
             tg.send(digest_message(batch))
             for entry in batch:
@@ -129,7 +130,8 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
         kind = f"{icon} {TOPIC_NAMES.get(topic, 'Tin tức')} · {esc(name)}"
         tg.send(
             f"{header(kind)}\n{posted_line(item.get('published'))}"
-            f"{esc(item['title'])}\n{esc(item['link'])}"
+            f"<b>{esc(item['title'])}</b>\n{esc(item['link'])}",
+            photo=item.get("image"),
         )
         mark(entry)  # only after Telegram accepted it; failures stay unseen -> retried
 

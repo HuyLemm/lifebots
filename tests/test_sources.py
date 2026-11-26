@@ -207,3 +207,22 @@ def test_digest_lists_newest_first_and_unknown_times_last():
         [entry("old", 5), entry("unknown", None), entry("new", 9), entry("mid", 7)]
     )
     assert text.index("new") < text.index("mid") < text.index("old") < text.index("unknown")
+
+
+def test_item_image_from_enclosure_media_and_img_tag():
+    import xml.etree.ElementTree as ET
+
+    from shared.feeds import item_image
+
+    def item(xml: str):
+        return ET.fromstring(
+            f'<item xmlns:media="http://search.yahoo.com/mrss/">{xml}</item>'
+        )
+
+    enc = item('<enclosure url="https://x/a.jpg" type="image/jpeg"/>')
+    assert item_image(enc) == "https://x/a.jpg"
+    assert item_image(item('<media:thumbnail url="https://x/b.jpg"/>')) == "https://x/b.jpg"
+    desc = item('<description>&lt;img src="https://x/c.jpg"&gt; hi</description>')
+    assert item_image(desc) == "https://x/c.jpg"
+    assert item_image(item("<title>no picture</title>")) is None
+    assert item_image(item('<enclosure url="https://x/a.mp3" type="audio/mpeg"/>')) is None

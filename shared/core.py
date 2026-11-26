@@ -125,10 +125,30 @@ class Telegram:
             return r.json()
         raise httpx.HTTPError(f"telegram {method} failed after retries: {last}")
 
-    def send(self, text: str, buttons: list[list[dict]] | None = None) -> None:
+    def send(
+        self, text: str, buttons: list[list[dict]] | None = None, photo: str | None = None
+    ) -> None:
+        """photo = image URL: sent as a picture with `text` as caption (<=1024 chars). If Telegram
+        cannot fetch the image, the same text goes out as a plain message, so nothing is lost."""
         if self.dry:
-            print(f"--- (dry) ---\n{text}\n")
+            print(f"--- (dry) ---\n{'[photo: ' + photo + ']' + chr(10) if photo else ''}{text}\n")
             return
+        if photo and len(text) <= 1024:
+            try:
+                self._call(
+                    "sendPhoto",
+                    {
+                        "chat_id": self.chat_id,
+                        "photo": photo,
+                        "caption": text,
+                        "parse_mode": "HTML",
+                    },
+                )
+                return
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code != 400:
+                    raise
+                log.info("image rejected by Telegram, sending text only: %s", photo)
         payload: dict = {
             "chat_id": self.chat_id,
             "text": text,

@@ -21,7 +21,7 @@ class FakeTG:
         self.fail = False
         self.answered: list[str] = []
 
-    def send(self, text, buttons=None):
+    def send(self, text, buttons=None, photo=None):
         if self.fail:
             raise httpx.HTTPError("telegram down")
         self.sent.append(text)
