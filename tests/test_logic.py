@@ -146,3 +146,17 @@ def test_price_edge_cases():
     assert extract_price("Áp mã 2tr4 dưới sp lụm màn hình 2K 24inch sale rẻ") == "2,4 tr"
     assert extract_price("màn hình 2K 24inch") is None  # resolution, not a price
     assert extract_price("Điện thoại còn 16999K: link") == "16999K"
+
+
+def test_due_slot_grace_window_delivers_a_late_report():
+    from datetime import datetime
+
+    from weather.bot import due_slot
+
+    hours = [0, 8, 12, 16, 20]
+    assert (
+        due_slot(datetime(2026, 11, 26, 9, 30), hours, None) == "2026-11-26-8"
+    )  # 1h30 late: still sent
+    assert due_slot(datetime(2026, 11, 26, 10, 0), hours, None) is None  # too late, wait for 12h
+    assert due_slot(datetime(2026, 11, 26, 9, 30), hours, "2026-11-26-8") is None  # never twice
+    assert due_slot(datetime(2026, 11, 26, 1, 10), hours, None) == "2026-11-26-0"  # midnight slot

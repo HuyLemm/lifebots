@@ -83,3 +83,36 @@ def test_petrol_parser_fails_loudly_on_layout_change(monkeypatch, bad):
         t = trackers.petrol({})
         if not t["rows"]:
             raise ValueError("no rows")
+
+
+def test_sjc_falls_back_to_relay_when_blocked(monkeypatch):
+    """GitHub's runners get 403 from sjc.com.vn: same row keys come from vang.today instead."""
+    from price import trackers
+
+    def blocked(*a, **k):
+        resp = httpx.Response(403, text="Forbidden", request=httpx.Request("POST", "http://sjc"))
+        raise httpx.HTTPStatusError("403", request=resp.request, response=resp)
+
+    monkeypatch.setattr(trackers.httpx, "post", blocked)
+    monkeypatch.setattr(
+        trackers,
+        "get_json",
+        lambda url, **p: __import__("json").loads((FIX / "vangtoday.json").read_text("utf-8")),
+    )
+    t = trackers.sjc({})
+    keys = {k for k, _, _ in t["rows"]}
+    assert {"sjc:SJC 1L-10L:buy", "sjc:SJC 1L-10L:sell", "sjc:Nhẫn SJC 99,99%:buy"} <= keys
+    assert all(v > 1_000_000 for _, _, v in t["rows"])
+
+
+def test_sjc_other_http_errors_still_raise(monkeypatch):
+    """A 500 is a real outage (-> health alert), only blocking codes use the relay."""
+    from price import trackers
+
+    def broken(*a, **k):
+        resp = httpx.Response(500, text="boom", request=httpx.Request("POST", "http://sjc"))
+        raise httpx.HTTPStatusError("500", request=resp.request, response=resp)
+
+    monkeypatch.setattr(trackers.httpx, "post", broken)
+    with pytest.raises(httpx.HTTPStatusError):
+        trackers.sjc({})

@@ -16,7 +16,36 @@ PNJ_URL = "https://edge-api.pnj.io/ecom-frontend/v1/get-gold-price"
 PETROL_URL = "https://webgia.com/gia-xang-dau/petrolimex/"
 
 
+VANGTODAY_URL = "https://www.vang.today/api/prices"
+SJC_BACKUP = {
+    "SJL1L10": "SJC 1L-10L",
+    "SJ9999": "Nhẫn SJC 99,99%",
+}  # vang.today code -> same row tag
+
+
+def sjc_backup() -> dict:
+    """SJC prices relayed by vang.today - used when sjc.com.vn refuses the caller (e.g. 403
+    for datacenter IPs such as GitHub's runners). Same row keys, so no false 'price changed'."""
+    prices = get_json(VANGTODAY_URL)["prices"]
+    rows = []
+    for code, tag in SJC_BACKUP.items():
+        p = prices.get(code)
+        if p:
+            rows.append((f"sjc:{tag}:buy", f"{tag} · Mua", float(p["buy"])))
+            rows.append((f"sjc:{tag}:sell", f"{tag} · Bán", float(p["sell"])))
+    return {"title": "🥇 Vàng SJC (HCM)", "unit": "luong", "stamp": "nguồn dự phòng", "rows": rows}
+
+
 def sjc(cfg: dict) -> dict:
+    try:
+        return sjc_official(cfg)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code not in (401, 403, 429):
+            raise
+        return sjc_backup()  # blocked, not broken: use the relay instead of alerting for days
+
+
+def sjc_official(cfg: dict) -> dict:
     r = httpx.post(
         SJC_URL,
         data={"method": "GetCurrentGoldPricesByBranch", "goldPriceId": "1"},
