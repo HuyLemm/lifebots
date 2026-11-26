@@ -90,17 +90,17 @@ jobs:
           today=$(date +%F)
           url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           rm -rf /tmp/bk && mkdir /tmp/bk && cd /tmp/bk
-          if git clone -q --depth=1 -b state-backup "$url" . 2>/dev/null; then
+          git init -q -b state-backup
+          if git fetch -q --depth=1 "$url" state-backup 2>/dev/null; then
+            git reset -q --hard FETCH_HEAD
             [ "$(cat .day 2>/dev/null)" = "$today" ] && { echo "backup already made today"; exit 0; }
-          else
-            git init -q
-            git checkout -q -b state-backup
           fi
           [ -d /tmp/st ] && cp -r /tmp/st/. .
           echo "$today" > .day
           git add -A
-          git -c user.name=lifebots -c user.email=lifebots@users.noreply.github.com commit -q -m "backup $today" || exit 0
-          git push -q "$url" state-backup || echo "backup push failed (not fatal)"
+          git -c user.name=lifebots -c user.email=lifebots@users.noreply.github.com commit -q -m "backup $today" || { echo "nothing to back up"; exit 0; }
+          git push -q "$url" HEAD:refs/heads/state-backup || echo "backup push failed (not fatal)"
+          echo "backup of $today pushed"
 
       - name: "Keep the schedule enabled (GitHub pauses cron after 60 days of inactivity)"
         if: always()
