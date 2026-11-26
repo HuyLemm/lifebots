@@ -135,15 +135,15 @@ class Telegram:
             return
         if photo and len(text) <= 1024:
             try:
-                self._call(
-                    "sendPhoto",
-                    {
-                        "chat_id": self.chat_id,
-                        "photo": photo,
-                        "caption": text,
-                        "parse_mode": "HTML",
-                    },
-                )
+                pic: dict = {
+                    "chat_id": self.chat_id,
+                    "photo": photo,
+                    "caption": text,
+                    "parse_mode": "HTML",
+                }
+                if buttons:
+                    pic["reply_markup"] = {"inline_keyboard": buttons}
+                self._call("sendPhoto", pic)
                 return
             except httpx.HTTPStatusError as e:
                 if e.response.status_code != 400:

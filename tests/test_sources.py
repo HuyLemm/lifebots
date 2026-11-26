@@ -226,3 +226,15 @@ def test_item_image_from_enclosure_media_and_img_tag():
     assert item_image(desc) == "https://x/c.jpg"
     assert item_image(item("<title>no picture</title>")) is None
     assert item_image(item('<enclosure url="https://x/a.mp3" type="audio/mpeg"/>')) is None
+
+
+def test_channel_post_photo_is_parsed():
+    from pathlib import Path
+
+    from stuff.channels import parse_channel
+
+    page = Path(__file__).parent.joinpath("fixtures", "channel.html").read_text(encoding="utf-8")
+    posts = parse_channel(page)
+    with_img = [p for p in posts if p["image"]]
+    assert with_img, "fixture has photo posts"
+    assert all(p["image"].startswith("https://") and "&amp;" not in p["image"] for p in with_img)

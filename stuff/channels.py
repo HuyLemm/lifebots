@@ -29,6 +29,9 @@ POST_SPLIT = re.compile(r'data-post="')
 TEXT_RE = re.compile(r'class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', re.S)
 HREF_RE = re.compile(r'href="([^"]+)"')
 TIME_RE = re.compile(r'<time datetime="([^"]+)"')
+PHOTO_RE = re.compile(
+    r"tgme_widget_message_photo_wrap[^>]*background-image:url\(['\"]?([^'\")]+)", re.S
+)
 PRODUCT_TTL = 24 * 3600
 
 
@@ -44,12 +47,14 @@ def parse_channel(page: str) -> list[dict]:
         links = [html.unescape(h) for h in HREF_RE.findall(raw)]
         text = html.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>", "\n", raw))).strip()
         t = TIME_RE.search(chunk)  # the message's own <time datetime="..."> (original post time)
+        ph = PHOTO_RE.search(chunk)  # first picture of the post (product photo), if any
         posts.append(
             {
                 "id": post_id,
                 "text": text,
                 "links": links,
                 "time": parse_time(t.group(1)) if t else None,
+                "image": html.unescape(ph.group(1)) if ph else None,
             }
         )
     return posts
@@ -199,7 +204,8 @@ def check_channels(tg: Telegram, state: State, args, cfg: dict) -> None:
     wanted = cfg.get("channel_platforms", [])  # e.g. ["Shopee"]; empty = any
     kws = effective_keywords(cfg, state)
     cap = cfg.get("max_per_run", 8)
-    todo: list[tuple[str, str, list[list[dict]] | None, str]] = []  # (post_id, msg, buttons, pkey)
+    # (post_id, msg, buttons, pkey, image)
+    todo: list[tuple[str, str, list[list[dict]] | None, str, str | None]] = []
     queued: set[str] = set()
 
     for ch in channels:
@@ -231,7 +237,12 @@ def check_channels(tg: Telegram, state: State, args, cfg: dict) -> None:
             pkey = product_key(deal)
             queued.add(pkey)
             link = next(
-                (u for u in post["links"] if any(n in u for n in sum(PLATFORMS.values(), ()))), ""
+                (
+                    u
+                    for u in post["links"]
+                    if u.startswith("http") and any(n in u for n in sum(PLATFORMS.values(), ()))
+                ),
+                "",
             )
             msg = format_deal(
                 plat,
@@ -240,7 +251,8 @@ def check_channels(tg: Telegram, state: State, args, cfg: dict) -> None:
                 link or f"https://t.me/{post['id']}",
                 post.get("time"),
             )
-            todo.append((post["id"], msg, drop_button(first_match(post["text"], ch_kws)), pkey))
+            button = drop_button(first_match(post["text"], ch_kws))
+            todo.append((post["id"], msg, button, pkey, post.get("image")))
 
     state.data["channels_started"] = True
     while len(seen) > 5000:
@@ -248,8 +260,8 @@ def check_channels(tg: Telegram, state: State, args, cfg: dict) -> None:
     if seeding:
         log.info("channels first run: remembered %d posts, nothing sent.", len(seen))
         return
-    for post_id, msg, buttons, pkey in reversed(todo[:cap]):  # oldest first
-        tg.send(msg, buttons)  # raises on failure -> stays unseen -> retried next round
+    for post_id, msg, buttons, pkey, image in reversed(todo[:cap]):  # oldest first
+        tg.send(msg, buttons, photo=image)  # raises on failure -> stays unseen -> retried next round
         seen[post_id] = True
         recent[pkey] = now
 
