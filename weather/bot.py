@@ -373,6 +373,14 @@ def rain_chart(d: dict, place: str) -> bytes | None:
     )
 
 
+def temp_line(d: dict) -> str:
+    """'🌡 Hiện tại: 33°C (cảm giác 36°C) · Mưa phùn' - every weather message carries it."""
+    return (
+        f"🌡 Hiện tại: <b>{d['now']:.0f}°C</b> (cảm giác {d['feels']:.0f}°C)"
+        f" · {wmo_label(d['now_code'])}"
+    )
+
+
 def summary(d: dict, place: str, hrs: int, now: datetime, outlook: bool = False) -> str:
     soon = max([p or 0 for p in d["hours_prob"][:hrs]] or [0])
     lines = [
@@ -576,7 +584,7 @@ def check_place(
     if parts:
         text = "\n\n".join(parts)
         if not with_summary:  # alerts only: still starts with the standard header
-            text = f"{header(f'🌦 Cảnh báo thời tiết {place}', now)}\n{text}"
+            text = f"{header(f'🌦 Cảnh báo thời tiết {place}', now)}\n{temp_line(d)}\n\n{text}"
         first_alert = due[0][0] if due and not with_summary else None
         photo: str | bytes = asset_url(banner(d, now, first_alert))
         if with_summary and (chart := rain_chart(d, p["name"])):
@@ -605,7 +613,7 @@ def send_commute(tg: Telegram, store: dict, cfg: dict, p: dict, d: dict, now: da
     warns = commute_warnings(d, cfg, cfg.get("commute_look_hours", 2))
     if warns:
         kind = f"🚦 Nhắc trước khi ra đường {esc(p['name'])}".rstrip()
-        text = f"{header(kind, now)}\n" + "\n".join(w for _, w in warns)
+        text = f"{header(kind, now)}\n{temp_line(d)}\n\n" + "\n".join(w for _, w in warns)
         tg.send(text, photo=asset_url(banner(d, now, warns[0][0])))
     done += [f"{today}-{t}" for t in times]  # also when quiet: handled for today
 

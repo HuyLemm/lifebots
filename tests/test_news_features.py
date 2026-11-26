@@ -456,3 +456,79 @@ def test_commands_have_usage_examples_for_help():
     for cmd, (_, desc) in bot.COMMANDS.items():
         assert cmd.startswith("/") and desc
     assert "ví dụ" in bot.COMMANDS["/tat"][1] and "rl:" in bot.CALLBACKS
+
+
+def test_og_image_prefers_og_over_twitter_and_resolves_relative():
+    from shared.feeds import og_image
+
+    page = (
+        '<html><head><meta name="twitter:image" content="https://x/tw.jpg">'
+        "<meta content='/img/a&amp;b.jpg?w=1200' property='og:image'></head>"
+    )
+    assert og_image(page, "https://news.example/a/b") == "https://news.example/img/a&b.jpg?w=1200"
+    assert og_image('<meta name="twitter:image" content="https://x/tw.jpg">') == "https://x/tw.jpg"
+    assert og_image('<meta property="og:image" content="https://x/logo.svg">') is None
+    assert og_image("<html><head><title>no picture</title></head>") is None
+
+
+def test_article_image_reads_head_only_and_never_raises(monkeypatch):
+    import httpx
+
+    from shared import feeds
+
+    html_page = b'<html><head><meta property="og:image" content="https://x/p.jpg"></head><body>' + b"x" * 10**6
+
+    def fake_stream(method, url, **kw):
+        class R:
+            status_code, encoding, url = 200, "utf-8", httpx.URL("https://x/story")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def iter_bytes(self):
+                yield from (html_page[i : i + 4096] for i in range(0, len(html_page), 4096))
+
+        return R()
+
+    monkeypatch.setattr(feeds.httpx, "stream", fake_stream)
+    assert feeds.article_image("https://x/story") == "https://x/p.jpg"
+
+    def boom(*a, **k):
+        raise httpx.ConnectTimeout("slow")
+
+    monkeypatch.setattr(feeds.httpx, "stream", boom)
+    assert feeds.article_image("https://x/story") is None  # a slow site must not break a news run
+
+
+def test_news_without_feed_image_uses_the_article_picture(tmp_path, monkeypatch):
+    from news import bot as news
+    from shared.core import State
+
+    class TG:
+        dry, chat_id, name = False, "1", "news"
+
+        def __init__(self):
+            self.sent = []
+
+        def send(self, text, buttons=None, photo=None):
+            self.sent.append((text, photo))
+
+    items = {"v": []}
+    monkeypatch.setattr(news, "fetch_feed", lambda feed, ok: (ok.add(feed["name"]), items["v"])[1])
+    monkeypatch.setattr(news, "article_image", lambda url: "https://x/og.jpg")
+    cfg = {"feeds": [{"name": "F", "url": "u", "topic": "tech"}]}
+
+    class A:
+        now = False
+
+    st, tg = State(tmp_path), TG()
+    news.check_feeds(tg, st, A(), cfg)  # first run: seeding
+    items["v"] = [
+        {"title": "Có ảnh trong RSS", "link": "https://x/1", "text": "", "published": None, "image": "https://x/rss.jpg", "src": "F"},
+        {"title": "Không có ảnh trong feed", "link": "https://x/2", "text": "", "published": None, "image": None, "src": "F"},
+    ]
+    news.check_feeds(tg, st, A(), cfg)
+    assert [p for _, p in tg.sent] == ["https://x/rss.jpg", "https://x/og.jpg"]

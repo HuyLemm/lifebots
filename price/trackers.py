@@ -118,6 +118,7 @@ def petrol(cfg: dict) -> dict:
     r.raise_for_status()
     html = r.text
     col = 1 if cfg.get("region", 1) == 1 else 2
+    only = cfg.get("only", [])  # fuel names to keep (substring match); [] = all of them
     table = re.search(r"<table.*?</table>", html, re.S).group(0)
     rows = []
     for tr in re.findall(r"<tr.*?</tr>", table, re.S):
@@ -126,10 +127,12 @@ def petrol(cfg: dict) -> dict:
             for c in re.findall(r"<t[dh].*?</t[dh]>", tr, re.S)
         ]
         if len(cells) >= 3 and re.fullmatch(r"[\d.]+", cells[col]):
+            if only and not any(w.lower() in cells[0].lower() for w in only):
+                continue  # e.g. only = ["RON 95"]: a motorbike rider needs just this one
             rows.append((f"petrol:{cells[0]}", cells[0], float(cells[col].replace(".", ""))))
     stamp = re.search(r"Cập nhật lúc ([\d:]+ [\d/]+)", html)
     return {
-        "title": f"⛽ Giá xăng dầu Petrolimex (vùng {cfg.get('region', 1)})",
+        "title": f"⛽ {'Giá xăng' if only else 'Giá xăng dầu'} Petrolimex (vùng {cfg.get('region', 1)})",
         "unit": "lit",
         "stamp": stamp.group(1) if stamp else "",
         "rows": rows,

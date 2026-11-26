@@ -5,6 +5,7 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+from urllib.parse import urljoin
 
 import httpx
 
@@ -70,6 +71,56 @@ def item_image(it: ET.Element) -> str | None:
         m = IMG_RE.search(it.findtext("{http://purl.org/rss/1.0/modules/content/}encoded") or "")
     url = m.group(1) if m else None
     return _clean(url) if url and url.startswith("http") else None
+
+
+META_TAG_RE = re.compile(r"<meta\b[^>]*>", re.I)
+ATTR_RE = re.compile(r"""([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0 Safari/537.36"
+)
+
+
+def og_image(page_html: str, base_url: str = "") -> str | None:
+    """The article's own picture from its <meta property="og:image"> (or twitter:image)."""
+    found: dict[str, str] = {}
+    for tag in META_TAG_RE.findall(page_html):
+        attrs = {m[0].lower(): (m[1] or m[2]) for m in ATTR_RE.findall(tag)}
+        prop = (attrs.get("property") or attrs.get("name") or "").lower()
+        if prop in ("og:image", "og:image:secure_url", "twitter:image", "twitter:image:src"):
+            if content := attrs.get("content", "").strip():
+                found.setdefault("og" if prop.startswith("og:") else "tw", content)
+    url = found.get("og") or found.get("tw")
+    if not url:
+        return None
+    url = urljoin(base_url, html.unescape(url))
+    ok = url.startswith(("http://", "https://")) and not url.lower().split("?")[0].endswith(
+        (".svg", ".ico", ".gif")
+    )
+    return url if ok else None
+
+
+def article_image(url: str, timeout: float = 6.0, max_bytes: int = 300_000) -> str | None:
+    """Fetch the article page and return its main picture, None on ANY problem (slow site,
+    paywall, no meta tag...). Only the first `max_bytes` are read: the meta tags live in <head>."""
+    try:
+        with httpx.stream(
+            "GET",
+            url,
+            timeout=timeout,
+            follow_redirects=True,
+            headers={"User-Agent": BROWSER_UA, "Accept-Language": "vi,en;q=0.8"},
+        ) as r:
+            if r.status_code >= 400:
+                return None
+            raw = b""
+            for chunk in r.iter_bytes():
+                raw += chunk
+                if len(raw) >= max_bytes or b"</head>" in raw.lower():
+                    break
+            return og_image(raw.decode(r.encoding or "utf-8", errors="replace"), str(r.url))
+    except (httpx.HTTPError, ValueError, LookupError):
+        return None
 
 
 def atom_image(e: ET.Element) -> str | None:

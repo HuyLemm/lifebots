@@ -225,6 +225,9 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
             extras=extras_for(name, tracker, trackers),
             legend=LEGEND_BY_TRACKER.get(name),
         )
+        if tcfg.get("silent"):  # fetched only to explain other prices (e.g. USD/VND behind gold)
+            prev.update(updates)
+            continue
         if msg:
             # raises on failure -> prev untouched -> retried next round
             tg.send(msg, photo=asset_url(BANNERS[name]) if name in BANNERS else None)
@@ -242,7 +245,7 @@ COMMANDS = {
     "/bao": (cmd_bao, "Đặt cảnh báo giá · ví dụ: /bao sjc 130 hoặc /bao btc trên 70000"),
     "/dsbao": (cmd_dsbao, "Xem các cảnh báo giá đã đặt"),
     "/xoabao": (cmd_xoabao, "Xoá cảnh báo · ví dụ: /xoabao 2 hoặc /xoabao all"),
-    "/bieudo": (cmd_bieudo, "Biểu đồ giá · ví dụ: /bieudo sjc 30 (mã: sjc, pnj, xau, usd, ron95...)"),
+    "/bieudo": (cmd_bieudo, "Biểu đồ giá · ví dụ: /bieudo sjc 30 (mã: sjc, pnj, xau, usd, ron95, btc...)"),
 }
 
 

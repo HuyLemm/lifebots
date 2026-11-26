@@ -429,3 +429,31 @@ def test_digest_lines_shape_and_failure(monkeypatch):
     assert bot.digest_lines({"latitude": 1, "longitude": 1}) == ""
     assert bot.digest_lines({}) == ""  # no place configured -> empty, no crash
     assert bot.digest_lines({"places": [{"name": "A", "latitude": 1, "longitude": 1}]}) == ""
+
+
+def test_every_weather_message_shows_the_temperature(tmp_path, monkeypatch):
+    from datetime import datetime
+
+    from weather import bot
+
+    d = {"code": 95, "tmax": 33, "tmin": 25, "feels_max": 35, "yesterday_max": 33, "rain_day_prob": 10,
+         "rain_day_mm": 0, "uv": 6, "wind": 10, "hours_prob": [0] * 24, "hours_mm": [0] * 24,
+         "hours_time": [""] * 24, "aqi": 50, "pm25": 10, "now": 31, "feels": 36, "now_code": 1,
+         "now_mm": 0}  # fmt: skip
+    assert "31°C" in bot.temp_line(d) and "cảm giác 36°C" in bot.temp_line(d)
+
+    sent = []
+
+    class TG:
+        dry, chat_id, name = False, "1", "weather"
+
+        def send(self, text, buttons=None, photo=None):
+            sent.append(text)
+
+    class A:
+        now = False
+
+    store: dict = {}
+    # alerts only (a storm), no scheduled report due: still carries the temperature
+    bot.check_place(TG(), store, A(), {"report_hours": []}, {"name": "HCM"}, d, datetime(2026, 11, 26, 14), 3, False)
+    assert sent and "31°C" in sent[0] and "Cảnh báo" in sent[0]

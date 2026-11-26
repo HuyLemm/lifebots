@@ -26,6 +26,7 @@ import httpx
 
 from shared.core import State, Telegram, esc, header, run
 from shared.feeds import (  # noqa: F401  (matches re-exported for tests)
+    article_image,
     fetch_items,
     matches,
     posted_line,
@@ -537,6 +538,7 @@ def check_feeds(tg: Telegram, state: State, args, cfg: dict) -> None:
         return
     ai_cfg = cfg.get("ai", {})
     ai_left = ai_cfg.get("max_per_run", 10) if ai_cfg.get("enabled", False) else 0
+    lookups_left = cfg.get("article_image_lookups", 15)  # page fetches per run (6 s timeout each)
     for entry in fresh[:cap]:
         item = entry[3]
         summary = None
@@ -546,7 +548,11 @@ def check_feeds(tg: Telegram, state: State, args, cfg: dict) -> None:
         text, link = single_message(entry, summary, bool(item.get("prio")))
         rid = remember_for_button(state, item["title"], link, now)
         buttons = [[{"text": "📌 Đọc sau", "callback_data": f"rl:{rid}"}]]
-        tg.send(text, buttons, photo=item.get("image"))
+        image = item.get("image")
+        if not image and lookups_left > 0:  # the feed has no picture: take the article's own
+            lookups_left -= 1
+            image = article_image(item["link"])
+        tg.send(text, buttons, photo=image)
         mark(entry)  # only after Telegram accepted it; failures stay unseen -> retried
 
 

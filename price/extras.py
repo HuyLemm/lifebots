@@ -23,8 +23,6 @@ CODES: dict[str, tuple[str, str, str]] = {
     "btc": ("btc", "usd", "Bitcoin BTC/USD"),
     "brent": ("brent", "usd2", "Dầu Brent"),
     "ron95": ("petrol:Xăng E10 RON 95", "lit", "Xăng RON 95"),
-    "ron92": ("petrol:Xăng E5 RON 92", "lit", "Xăng RON 92"),
-    "do": ("petrol:Dầu DO 0,05S", "lit", "Dầu DO 0,05S"),
 }
 CODE_LIST = ", ".join(CODES)
 BANNER_BY_PREFIX = {

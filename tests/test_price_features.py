@@ -229,3 +229,50 @@ def test_morning_survives_missing_parts(monkeypatch):
     tr = {"sjc": {"rows": [("sjc:SJC 1L-10L:buy", "x", 129.5e6), ("sjc:SJC 1L-10L:sell", "x", 134.5e6)]}}
     text = morning.morning_text(tr, datetime(2026, 11, 26, 7, 0))
     assert text.startswith("📍") and "SJC: mua 129.50" in text  # prices still go out
+
+
+def test_silent_tracker_feeds_context_but_never_sends(tmp_path, monkeypatch):
+    from price import bot
+
+    rows = {
+        "usd_vnd": [("usdvnd", "USD/VND", 25800.0)],
+        "petrol": [("petrol:Xăng E10 RON 95 mức 5", "Xăng E10 RON 95 mức 5", 21000.0)],
+    }
+    units = {"usd_vnd": "usd_vnd", "petrol": "lit"}
+    monkeypatch.setattr(
+        bot,
+        "TRACKERS",
+        {n: (lambda cfg, n=n: {"title": n, "unit": units[n], "stamp": "", "rows": rows[n]}) for n in rows},
+    )
+    monkeypatch.setattr(bot, "maintenance", lambda *a, **k: None)
+    monkeypatch.setattr(bot.history, "append", lambda *a, **k: None)
+    cfg = {"trackers": {"usd_vnd": {"enabled": True, "silent": True}, "petrol": {"enabled": True}}}
+
+    class A:
+        now = False
+
+    st, tg = State(tmp_path), TG()
+    bot.check(tg, st, A(), cfg)
+    assert len(tg.sent) == 1 and "Xăng E10 RON 95" in tg.sent[0][0]  # petrol only, no USD message
+    assert st.data["values"]["usdvnd"] == 25800.0  # but USD is still tracked for explanations
+
+
+def test_petrol_only_keeps_just_the_wanted_fuel(monkeypatch):
+    import httpx
+
+    from price import trackers
+
+    html = (
+        "<table>"
+        "<tr><td>Xăng E10 RON 95 mức 5</td><td>21.050</td><td>21.470</td></tr>"
+        "<tr><td>Xăng E10 RON 95 mức 3</td><td>19.050</td><td>19.430</td></tr>"
+        "<tr><td>Dầu DO 0,05S mức 2</td><td>24.960</td><td>25.450</td></tr>"
+        "</table>"
+    )
+    monkeypatch.setattr(
+        trackers.httpx, "get", lambda *a, **k: httpx.Response(200, text=html, request=httpx.Request("GET", "u"))
+    )
+    all_rows = trackers.petrol({})["rows"]
+    assert len(all_rows) == 3
+    only = trackers.petrol({"only": ["E10 RON 95 mức 5"]})["rows"]
+    assert [label for _, label, _ in only] == ["Xăng E10 RON 95 mức 5"]

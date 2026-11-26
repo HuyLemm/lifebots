@@ -4,7 +4,7 @@ Bốn bot Telegram, mỗi bot một folder riêng (token, config, trạng thái 
 
 | Folder | Làm gì |
 |---|---|
-| `price/` | Giá vàng (SJC, PNJ, thế giới), bạc, Bitcoin, dầu Brent, xăng dầu Petrolimex, tỷ giá USD/VND; báo khi giá đổi kèm lý do (đối chiếu số liệu), chênh mua–bán, đỉnh/đáy 30 ngày; cảnh báo theo ngưỡng riêng, biểu đồ, nhắc kỳ điều hành xăng thứ Năm, bản tin buổi sáng 7h, thống kê tuần |
+| `price/` | Giá vàng (SJC, PNJ, thế giới) và xăng E10 RON 95 (mặc định chỉ báo hai thứ này; bạc, Bitcoin, Brent, USD/VND, bản tin sáng, bản tin "còn sống" có sẵn nhưng đang tắt trong config); báo khi giá đổi kèm lý do (đối chiếu số liệu), chênh mua–bán, đỉnh/đáy 30 ngày; cảnh báo theo ngưỡng riêng, biểu đồ, nhắc kỳ điều hành xăng thứ Năm, bản tin buổi sáng 7h, thống kê tuần |
 | `news/` | Tin công nghệ (ưu tiên) + chiến tranh, kinh tế, vụ án từ RSS; lọc trùng giữa các báo; nhiều tin cùng lúc gộp thành 1 bản tổng hợp |
 | `weather/` | Báo cáo thời tiết 0h/8h/12h/16h/20h + cảnh báo bất thường bất cứ lúc nào (mưa, dông, nóng, UV, gió, AQI...) |
 | `stuff/` | Sản phẩm giảm giá (kèm giá) trên Shopee, Lazada, TikTok Shop, đọc từ kênh Telegram săn sale công khai, lọc theo sở thích |
@@ -33,7 +33,7 @@ Mỗi folder bot có: `bot.py`, `config.toml` (chỉnh thông số), `.env` (tok
 
 ## Điều khiển ngay trong Telegram
 Mọi bot: `/help` (danh sách lệnh), `/status` (tình trạng), `/now` (gửi ngay bản hiện tại), `/pause`, `/resume`. Chỉ chat của bạn (`TELEGRAM_CHAT_ID`) được nghe lệnh.
-Bot **price**: `/bao sjc 130` (báo khi SJC bán ra ≤ 130 triệu; `/bao btc trên 70000` báo khi ≥), `/dsbao`, `/xoabao <số|all>`, `/bieudo sjc 30` (biểu đồ 30 ngày). Mã: sjc, nhan, pnj, pnj24k, xau, usd, bac, btc, brent, ron95, ron92, do.
+Bot **price**: `/bao sjc 130` (báo khi SJC bán ra ≤ 130 triệu; `/bao btc trên 70000` báo khi ≥), `/dsbao`, `/xoabao <số|all>`, `/bieudo sjc 30` (biểu đồ 30 ngày). Mã: sjc, nhan, pnj, pnj24k, xau, usd, bac, btc, brent, ron95 (bac, btc, brent chỉ hoạt động khi bật tracker tương ứng trong price/config.toml).
 Bot **stuff**: `/keywords`, `/add <từ>`, `/del <từ>`, hoặc bấm nút 🚫 dưới tin để bỏ từ khoá đã khớp. Thêm: `/theodoi <từ>` (deal chứa từ này luôn được báo, gắn 🔥, gửi trước), `/botheodoi`, `/dstheodoi`; `/chan <từ>` (không bao giờ báo deal chứa từ này), `/bochan`, `/dschan`; `/tincay <hãng>` (cộng điểm ⭐ và gắn ✅), `/botincay`, `/dstincay`. Deal có điểm ⭐ 0–5, dòng 📉 "rẻ hơn lần trước", ⏳ hạn dùng và nhắc ⏰ trước khi hết hạn; `min_score` trong config (mặc định 0 = không bỏ deal nào).
 Bot **news**: `/tat <chủ đề>`, `/bat <chủ đề>`, `/chude` (công nghệ, thế giới, kinh tế, vụ án); `/chan <từ>`, `/bochan`, `/tuchan`; `/uutien <từ>` (gắn 🔥, gửi trước, bỏ qua lọc từ khoá của nguồn), `/bouutien`, `/dsuutien`; nút **📌 Đọc sau** dưới mỗi tin, `/doclai`, `/xoadoclai` (Chủ nhật 19h tự nhắc danh sách). Tóm tắt AI tuỳ chọn: `[ai] enabled = true` + secret `ANTHROPIC_API_KEY` (mặc định tắt).
 Bot **weather**: `/diadiem`, `/them <tên>` (tra toạ độ tự động, tối đa 4 nơi thêm), `/bo <tên>`; nhắc trước khi ra đường qua `commute_times` trong config.

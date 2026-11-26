@@ -1,9 +1,9 @@
-# Bot giá: báo mỗi khi giá cập nhật. Chỉnh ở đây, không cần sửa code.
+# Bot giá: CHỈ báo VÀNG và XĂNG E10 RON 95 (cùng cảnh báo giá bạn tự đặt bằng /bao). Chỉnh ở đây, không cần sửa code.
 interval_seconds = 60           # kiểm tra mỗi phút: giá vừa đổi là báo ngay
 cron_token_expires = "2027-11-26"  # ngày hết hạn token GitHub của cron-job.org (nhắc trước 14 ngày)
 token_warn_days = 14
-morning_hour = 7                # bản tin buổi sáng (giá + thời tiết + tin nổi bật) lúc 7h; -1 = tắt
-heartbeat_hour = 9             # mỗi ngày gửi bản tin "LifeBots còn sống" lúc 9h (-1 = tắt); thứ Hai kèm giá tuần qua
+morning_hour = -1               # bản tin buổi sáng (giá + thời tiết + tin nổi bật); đang TẮT, đặt 7 để bật lúc 7h
+heartbeat_hour = -1            # bản tin "LifeBots còn sống" (thứ Hai kèm tóm tắt + biểu đồ tuần); đang TẮT, đặt 9 để bật lúc 9h
 
 # enabled = bật/tắt theo dõi
 # min_change_pct = chỉ báo khi lệch ít nhất X% so với lần báo trước (0 = báo mọi thay đổi)
@@ -20,24 +20,26 @@ min_change_pct = 0
 [trackers.petrol]               # Xăng dầu Petrolimex, đổi giá theo kỳ điều hành
 enabled = true
 region = 1                      # 1 = vùng 1 (nội thành HCM/HN), 2 = vùng 2
+only = ["E10 RON 95 mức 5"]     # chỉ hiện Xăng E10 RON 95 (đi xe máy); [] = hiện đủ xăng, dầu
 min_change_pct = 0
 
 [trackers.world_gold]           # Vàng thế giới, đổi liên tục nên đặt ngưỡng %
 enabled = true
 min_change_pct = 1.0
 
-[trackers.usd_vnd]              # Tỷ giá USD/VND
+[trackers.usd_vnd]              # Tỷ giá USD/VND: chỉ lấy NGẦM để giải thích giá vàng, không gửi tin
 enabled = true
+silent = true
 min_change_pct = 0.3
 
-[trackers.silver]               # Bạc thế giới (USD/ounce)
-enabled = true
+[trackers.silver]              # Bạc thế giới: đang TẮT
+enabled = false
 min_change_pct = 1.5
 
-[trackers.bitcoin]              # Bitcoin (USD)
-enabled = true
+[trackers.bitcoin]              # Bitcoin: đang TẮT
+enabled = false
 min_change_pct = 3.0
 
-[trackers.brent]                # Dầu thô Brent (USD/thùng): dùng gợi ý xu hướng giá xăng mỗi thứ Năm
-enabled = true
+[trackers.brent]              # Dầu Brent: đang TẮT (nhắc thứ Năm vẫn tự lấy giá dầu khi cần)
+enabled = false
 min_change_pct = 3.0
