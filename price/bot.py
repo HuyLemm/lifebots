@@ -54,7 +54,8 @@ def build_message(
     if not updates and not show_all:
         return None, {}
     now = now or datetime.now()
-    return f"{header(esc(tracker['title']), now)}\n" + "\n".join(lines), updates
+    stamp = f"🕒 Nguồn cập nhật: {esc(tracker['stamp'])}\n" if tracker["stamp"] else ""
+    return f"{header(esc(tracker['title']), now)}\n{stamp}" + "\n".join(lines), updates
 
 
 def maintenance(tg: Telegram, state: State, cfg: dict) -> None:

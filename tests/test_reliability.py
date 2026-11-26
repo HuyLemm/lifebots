@@ -423,7 +423,7 @@ def test_news_digest_reports_every_item_in_chunks(tmp_path, monkeypatch):
     bot.check(tg, st, args(), cfg)
     feed["items"] = _items(*[f"story number {i}" for i in range(60)])
     bot.check(tg, st, args(), cfg)
-    assert len(tg.sent) == 3  # 25 + 25 + 10: nothing is left for a later run
+    assert tg.sent and all(len(m) < 4096 for m in tg.sent)  # split by length, none cut
     assert sum(m.count("<a href") for m in tg.sent) == 60
 
 

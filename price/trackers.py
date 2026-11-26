@@ -8,9 +8,16 @@ import re
 import httpx
 
 from shared.core import get_json
-from shared.feeds import HEADERS
+from shared.feeds import HEADERS, parse_time
 
 OUNCE_G, LUONG_G = 31.1035, 37.5
+
+
+def stamp_text(dt) -> str:
+    """Source-update time as '09:40 25/11/2026', or '' when the source gives none."""
+    return f"{dt:%H:%M %d/%m/%Y}" if dt else ""
+
+
 SJC_URL = "https://sjc.com.vn/GoldPrice/Services/PriceService.ashx"
 PNJ_URL = "https://edge-api.pnj.io/ecom-frontend/v1/get-gold-price"
 PETROL_URL = "https://webgia.com/gia-xang-dau/petrolimex/"
@@ -26,14 +33,17 @@ SJC_BACKUP = {
 def sjc_backup() -> dict:
     """SJC prices relayed by vang.today - used when sjc.com.vn refuses the caller (e.g. 403
     for datacenter IPs such as GitHub's runners). Same row keys, so no false 'price changed'."""
-    prices = get_json(VANGTODAY_URL)["prices"]
+    j = get_json(VANGTODAY_URL)
+    prices = j["prices"]
+    d = j.get("date", "")  # '2026-11-26' -> '26/11/2026'
+    stamp = f"{j.get('time', '')} {d[8:10]}/{d[5:7]}/{d[:4]}" if d else ""
     rows = []
     for code, tag in SJC_BACKUP.items():
         p = prices.get(code)
         if p:
             rows.append((f"sjc:{tag}:buy", f"{tag} · Mua", float(p["buy"])))
             rows.append((f"sjc:{tag}:sell", f"{tag} · Bán", float(p["sell"])))
-    return {"title": "🥇 Vàng SJC (HCM)", "unit": "luong", "stamp": "nguồn dự phòng", "rows": rows}
+    return {"title": "🥇 Vàng SJC (HCM)", "unit": "luong", "stamp": stamp, "rows": rows}
 
 
 def sjc(cfg: dict) -> dict:
@@ -106,22 +116,22 @@ def petrol(cfg: dict) -> dict:
 
 
 def world_gold(cfg: dict) -> dict:
-    xau = get_json("https://api.gold-api.com/price/XAU")["price"]
+    j = get_json("https://api.gold-api.com/price/XAU")
     return {
         "title": "🌍 Vàng thế giới",
         "unit": "usd_oz",
-        "stamp": "",
-        "rows": [("xau", "XAU/USD", xau)],
+        "stamp": stamp_text(parse_time(j.get("updatedAt"))),
+        "rows": [("xau", "XAU/USD", j["price"])],
     }
 
 
 def usd_vnd(cfg: dict) -> dict:
-    rate = get_json("https://open.er-api.com/v6/latest/USD")["rates"]["VND"]
+    j = get_json("https://open.er-api.com/v6/latest/USD")
     return {
         "title": "💵 Tỷ giá",
         "unit": "usd_vnd",
-        "stamp": "",
-        "rows": [("usdvnd", "USD/VND", rate)],
+        "stamp": stamp_text(parse_time(j.get("time_last_update_utc"))),
+        "rows": [("usdvnd", "USD/VND", j["rates"]["VND"])],
     }
 
 

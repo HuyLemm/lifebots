@@ -11,11 +11,12 @@ import html
 import logging
 import re
 import time
+from datetime import datetime
 
 import httpx
 
 from shared.core import State, Telegram, esc, header
-from shared.feeds import HEADERS, contains_any
+from shared.feeds import HEADERS, contains_any, parse_time, posted_line
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ PLATFORMS = {
 POST_SPLIT = re.compile(r'data-post="')
 TEXT_RE = re.compile(r'class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', re.S)
 HREF_RE = re.compile(r'href="([^"]+)"')
+TIME_RE = re.compile(r'<time datetime="([^"]+)"')
 PRODUCT_TTL = 24 * 3600
 
 
@@ -41,7 +43,15 @@ def parse_channel(page: str) -> list[dict]:
         raw = m.group(1)
         links = [html.unescape(h) for h in HREF_RE.findall(raw)]
         text = html.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>", "\n", raw))).strip()
-        posts.append({"id": post_id, "text": text, "links": links})
+        t = TIME_RE.search(chunk)  # the message's own <time datetime="..."> (original post time)
+        posts.append(
+            {
+                "id": post_id,
+                "text": text,
+                "links": links,
+                "time": parse_time(t.group(1)) if t else None,
+            }
+        )
     return posts
 
 
@@ -119,7 +129,9 @@ def product_key(deal: dict) -> str:
     return re.sub(r"\W+", "", deal["lines"][0].lower())[:40] + "|" + (deal["price"] or "")
 
 
-def format_deal(plat: str | None, channel: str, deal: dict, link: str) -> str:
+def format_deal(
+    plat: str | None, channel: str, deal: dict, link: str, posted: datetime | None = None
+) -> str:
     tag = f"[{plat}] " if plat else ""
     body = "\n".join(esc(line) for line in deal["lines"])
     facts = []
@@ -128,7 +140,8 @@ def format_deal(plat: str | None, channel: str, deal: dict, link: str) -> str:
     if deal["discount"]:
         facts.append(f"🔻 giảm {deal['discount']}%")
     facts_line = ("\n" + " · ".join(facts)) if facts else ""
-    return f"{header(f'🛍 Deal {esc(tag)}· {esc(channel)}')}\n{body}{facts_line}\n{esc(link)}"
+    head = header(f"🛍 Deal {esc(tag)}· {esc(channel)}")
+    return f"{head}\n{posted_line(posted)}{body}{facts_line}\n{esc(link)}"
 
 
 def effective_keywords(cfg: dict, state: State) -> list[str]:
@@ -221,7 +234,11 @@ def check_channels(tg: Telegram, state: State, args, cfg: dict) -> None:
                 (u for u in post["links"] if any(n in u for n in sum(PLATFORMS.values(), ()))), ""
             )
             msg = format_deal(
-                plat, ch.get("name", handle), deal, link or f"https://t.me/{post['id']}"
+                plat,
+                ch.get("name", handle),
+                deal,
+                link or f"https://t.me/{post['id']}",
+                post.get("time"),
             )
             todo.append((post["id"], msg, drop_button(first_match(post["text"], ch_kws)), pkey))
 

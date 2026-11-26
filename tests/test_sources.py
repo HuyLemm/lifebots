@@ -116,3 +116,94 @@ def test_sjc_other_http_errors_still_raise(monkeypatch):
     monkeypatch.setattr(trackers.httpx, "post", broken)
     with pytest.raises(httpx.HTTPStatusError):
         trackers.sjc({})
+
+
+# ---------- original post time ----------
+
+
+def test_parse_time_formats_to_vietnam_time():
+    from shared.feeds import parse_time
+
+    assert parse_time("Wed, 25 Nov 2026 16:06:40 +0700").strftime("%H:%M %d/%m") == "16:06 25/11"
+    assert parse_time("Thu, 26 Nov 2026 02:59:08 +0000").strftime("%H:%M %d/%m") == "09:59 26/11"
+    assert parse_time("2026-11-26T02:53:40+00:00").strftime("%H:%M") == "09:53"
+    assert parse_time("2026-11-26T02:58:47Z").strftime("%H:%M") == "09:58"
+    assert parse_time("") is None and parse_time(None) is None and parse_time("not a date") is None
+
+
+def test_rss_items_carry_the_original_publish_time(monkeypatch):
+    from shared import feeds
+
+    monkeypatch.setattr(
+        feeds.httpx, "get", lambda *a, **k: fake_response((FIX / "rss.xml").read_text("utf-8"))
+    )
+    items = feeds.fetch_items("http://x")
+    assert all(i["published"] is not None for i in items)
+    assert items[0]["published"].strftime("%d/%m %H:%M") == "25/11 16:06"  # pubDate +0700
+
+
+def test_channel_posts_carry_the_original_time():
+    from stuff.channels import parse_channel
+
+    posts = parse_channel((FIX / "channel.html").read_text("utf-8"))
+    assert posts and all(p["time"] is not None for p in posts)
+
+
+def test_messages_show_the_original_time():
+    from datetime import datetime
+
+    from news.bot import digest_message
+    from price.bot import build_message
+    from shared.feeds import VN
+    from stuff.channels import format_deal
+
+    t = datetime(2026, 11, 25, 7, 15, tzinfo=VN)
+    deal = {"lines": ["Bàn phím"], "price": "595K", "discount": None}
+    assert "🕒 Đăng lúc 07:15 (25/11)" in format_deal("Lazada", "G", deal, "http://x", t)
+    assert "🕒" not in format_deal("Lazada", "G", deal, "http://x")  # unknown time: no empty line
+
+    tracker = {"title": "T", "unit": "lit", "stamp": "09:40 25/11/2026", "rows": [("a", "x", 1.0)]}
+    assert "🕒 Nguồn cập nhật: 09:40 25/11/2026" in build_message(tracker, {}, 0, False)[0]
+
+    item = {"title": "Tin", "link": "http://x/1", "text": "", "published": t}
+    assert "25/11 07:15 · <a" in digest_message([(1, "tech", "F", item)])
+
+
+def test_digest_is_split_by_length_so_nothing_is_cut():
+    from news.bot import digest_chunks, digest_message
+
+    long = "x" * 120
+    entries = [
+        (
+            1,
+            "tech",
+            "F",
+            {"title": f"{long} {i}", "link": f"http://example.com/{long}/{i}", "text": ""},
+        )
+        for i in range(40)
+    ]
+    chunks = digest_chunks(entries)
+    assert len(chunks) > 1 and sum(len(c) for c in chunks) == 40  # every entry lands in a chunk
+    assert all(len(digest_message(c)) < 4096 for c in chunks)
+    assert "…" not in "".join(digest_message(c) for c in chunks)  # no truncation marker
+
+
+def test_digest_lists_newest_first_and_unknown_times_last():
+    from datetime import datetime
+
+    from news.bot import digest_message
+    from shared.feeds import VN
+
+    def entry(title, hour):
+        pub = datetime(2026, 11, 26, hour, 0, tzinfo=VN) if hour is not None else None
+        return (
+            1,
+            "tech",
+            "F",
+            {"title": title, "link": f"http://x/{title}", "text": "", "published": pub},
+        )
+
+    text = digest_message(
+        [entry("old", 5), entry("unknown", None), entry("new", 9), entry("mid", 7)]
+    )
+    assert text.index("new") < text.index("mid") < text.index("old") < text.index("unknown")

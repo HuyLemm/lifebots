@@ -18,7 +18,12 @@ from pathlib import Path
 import httpx
 
 from shared.core import State, Telegram, esc, header, run
-from shared.feeds import fetch_items, matches  # noqa: F401  (matches re-exported for tests)
+from shared.feeds import (  # noqa: F401  (matches re-exported for tests)
+    fetch_items,
+    matches,
+    posted_line,
+    short_time,
+)
 
 log = logging.getLogger(__name__)
 TOPIC_ICONS = {"tech": "💻", "world": "⚔️", "economy": "📈", "crime": "⚖️"}
@@ -33,8 +38,14 @@ def norm_title(title: str) -> str:
 def digest_message(batch: list[tuple[int, str, str, dict]]) -> str:
     """One message grouped by topic: '• <link>title</link>'. Kept under Telegram's 4096 limit."""
     by_topic: dict[str, list[str]] = {}
-    for _, topic, _name, item in batch:
-        line = f'• <a href="{esc(item["link"])}">{esc(item["title"])}</a>'
+
+    def newest_first(entry: tuple) -> tuple[bool, float]:
+        published = entry[3].get("published")
+        return (published is None, -published.timestamp() if published else 0.0)
+
+    for _, topic, _name, item in sorted(batch, key=newest_first):
+        when = short_time(item.get("published"))
+        line = f'• {when + " · " if when else ""}<a href="{esc(item["link"])}">{esc(item["title"])}</a>'
         by_topic.setdefault(topic, []).append(line)
     out = [header(f"📰 Tin tổng hợp ({len(batch)} tin mới)")]
     for topic in [*TOPIC_ICONS, *[t for t in by_topic if t not in TOPIC_ICONS]]:
@@ -43,8 +54,22 @@ def digest_message(batch: list[tuple[int, str, str, dict]]) -> str:
                 f"\n{TOPIC_ICONS.get(topic, '📰')} <b>{TOPIC_NAMES.get(topic, topic or 'Khác')}</b>"
             )
             out += by_topic[topic]
-    text = "\n".join(out)
-    return text if len(text) < 3900 else text[:3850].rsplit("\n", 1)[0] + "\n…"
+    return "\n".join(out)
+
+
+def digest_chunks(fresh: list, limit: int = 3600) -> list[list]:
+    """Split items into digest messages that each fit Telegram's 4096-char limit, so NO item is
+    ever cut off (an item is only marked seen after the message that contains it was sent)."""
+    chunks: list[list] = []
+    cur: list = []
+    for entry in fresh:
+        if cur and len(digest_message([*cur, entry])) > limit:
+            chunks.append(cur)
+            cur = []
+        cur.append(entry)
+    if cur:
+        chunks.append(cur)
+    return chunks
 
 
 def check(tg: Telegram, state: State, args, cfg: dict) -> None:
@@ -93,8 +118,7 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
         titles[norm_title(entry[3]["title"])] = now
 
     if len(fresh) > cfg.get("digest_over", 6):
-        for i in range(0, len(fresh), 25):  # every item gets reported, 25 per message
-            batch = fresh[i : i + 25]
+        for batch in digest_chunks(fresh):  # every item is reported, as many messages as needed
             tg.send(digest_message(batch))
             for entry in batch:
                 mark(entry)
@@ -103,7 +127,10 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
         _, topic, name, item = entry
         icon = TOPIC_ICONS.get(topic, "📰")
         kind = f"{icon} {TOPIC_NAMES.get(topic, 'Tin tức')} · {esc(name)}"
-        tg.send(f"{header(kind)}\n{esc(item['title'])}\n{esc(item['link'])}")
+        tg.send(
+            f"{header(kind)}\n{posted_line(item.get('published'))}"
+            f"{esc(item['title'])}\n{esc(item['link'])}"
+        )
         mark(entry)  # only after Telegram accepted it; failures stay unseen -> retried
 
 
