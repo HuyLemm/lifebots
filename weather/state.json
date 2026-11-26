@@ -1,13 +1,18 @@
 {
  "last": {
-  "heat": 1795653155.9435883,
+  "heat": 1795697168.2600439,
   "rain": 1795680116.2054276
  },
- "last_report": "2026-11-26-12",
+ "last_report": "2026-11-27-0",
  "watch": {},
- "last_check": 1795680987.4156024,
+ "last_check": 1795715837.7206705,
  "offset": 293300691,
  "commands_set": true,
  "health": {},
- "commute_done": []
+ "commute_done": [],
+ "last_outlook": "2026-11-26",
+ "stats": {
+  "2026-11-26": 3,
+  "2026-11-27": 1
+ }
 }
