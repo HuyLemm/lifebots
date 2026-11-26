@@ -80,6 +80,32 @@ def visible_len(text: str) -> int:
     return len(html.unescape(re.sub(r"<[^>]+>", "", text)))
 
 
+def download_image(url: str, max_bytes: int = 8_000_000) -> bytes | None:
+    """Fetch a picture ourselves and return it as JPEG bytes (None on any problem). Re-encoding
+    with Pillow (when installed) fixes formats Telegram dislikes (webp/png) and shrinks big ones."""
+    from shared.feeds import BROWSER_UA
+
+    try:
+        r = httpx.get(url, headers={"User-Agent": BROWSER_UA}, timeout=20, follow_redirects=True)
+    except httpx.HTTPError:
+        return None
+    kind = r.headers.get("content-type", "").split(";")[0].strip()
+    if r.status_code != 200 or not kind.startswith("image/") or not 0 < len(r.content) <= max_bytes:
+        return None
+    try:
+        import io
+
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(r.content))
+        img.thumbnail((1600, 1600))
+        out = io.BytesIO()
+        img.convert("RGB").save(out, "JPEG", quality=88)
+        return out.getvalue()
+    except Exception:  # noqa: BLE001 - no Pillow / unreadable: send the original bytes
+        return r.content
+
+
 def asset_url(name: str) -> str:
     """URL of a banner in assets/ (served from the public repo; Telegram fetches it itself).
     If it cannot be fetched, Telegram.send falls back to a plain text message."""
@@ -166,20 +192,29 @@ class Telegram:
             self.sent_count += 1
             return
         if photo and visible_len(text) <= 1024:
-            try:
-                pic: dict = {"chat_id": self.chat_id, "caption": text, "parse_mode": "HTML"}
-                if buttons:
-                    pic["reply_markup"] = {"inline_keyboard": buttons}
-                if isinstance(photo, bytes):
-                    self._call("sendPhoto", pic, files={"photo": ("chart.jpg", photo, "image/jpeg")})
-                else:
-                    self._call("sendPhoto", {**pic, "photo": photo})
-                self.sent_count += 1
-                return
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code != 400:
-                    raise
-                log.info("image rejected by Telegram, sending text only")
+            pic: dict = {"chat_id": self.chat_id, "caption": text, "parse_mode": "HTML"}
+            if buttons:
+                pic["reply_markup"] = {"inline_keyboard": buttons}
+            for attempt in range(2):
+                try:
+                    if isinstance(photo, bytes):
+                        self._call(
+                            "sendPhoto", pic, files={"photo": ("photo.jpg", photo, "image/jpeg")}
+                        )
+                    else:
+                        self._call("sendPhoto", {**pic, "photo": photo})
+                    self.sent_count += 1
+                    return
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code != 400:
+                        raise
+                    # Many sites (VnExpress, Telegram's channel CDN...) refuse Telegram's own
+                    # servers: download the picture ourselves and upload it instead.
+                    if attempt == 0 and isinstance(photo, str) and (data := download_image(photo)):
+                        photo = data
+                        continue
+                    log.info("image rejected by Telegram, sending text only")
+                    break
         payload: dict = {
             "chat_id": self.chat_id,
             "text": text,
@@ -203,6 +238,18 @@ class Telegram:
         media = [{"type": "photo", "media": p} for p in photos]
         try:
             self._call("sendMediaGroup", {"chat_id": self.chat_id, "media": media})
+            return
+        except httpx.HTTPError as e:
+            log.info("album by URL rejected (%s), uploading the pictures instead", e)
+        files, media = {}, []
+        for i, url in enumerate(photos):  # same fallback as send(): download, then upload
+            if data := download_image(url):
+                files[f"p{i}"] = (f"p{i}.jpg", data, "image/jpeg")
+                media.append({"type": "photo", "media": f"attach://p{i}"})
+        if len(media) < 2:
+            return
+        try:
+            self._call("sendMediaGroup", {"chat_id": self.chat_id, "media": media}, files=files)
         except httpx.HTTPError as e:
             log.info("album not sent: %s", e)
 

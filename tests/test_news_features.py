@@ -532,3 +532,34 @@ def test_news_without_feed_image_uses_the_article_picture(tmp_path, monkeypatch)
     ]
     news.check_feeds(tg, st, A(), cfg)
     assert [p for _, p in tg.sent] == ["https://x/rss.jpg", "https://x/og.jpg"]
+
+
+def test_photo_url_refused_by_telegram_is_downloaded_and_uploaded(monkeypatch):
+    """Telegram answers 400 'failed to get HTTP URL content' for sites that block it: the bot
+    must fetch the picture itself and upload it, and only then fall back to text."""
+    import httpx
+
+    from shared import core
+
+    calls = []
+
+    def fake_call(self, method, payload, timeout=20, files=None):
+        calls.append((method, "files" if files else "url"))
+        if method == "sendPhoto" and not files:
+            raise httpx.HTTPStatusError(
+                "400", request=httpx.Request("POST", "u"), response=httpx.Response(400, text="no")
+            )
+        return {"ok": True}
+
+    monkeypatch.setattr(core.Telegram, "_call", fake_call)
+    monkeypatch.setattr(core, "download_image", lambda url, **k: b"JPEGBYTES")
+    tg = core.Telegram(dry=False)
+    tg.token, tg.chat_id, tg.dry = "t", "1", False
+    tg.send("hello", photo="https://blocked.example/a.jpg")
+    assert calls == [("sendPhoto", "url"), ("sendPhoto", "files")]  # retried as an upload
+    assert tg.sent_count == 1
+
+    calls.clear()
+    monkeypatch.setattr(core, "download_image", lambda url, **k: None)  # cannot download either
+    tg.send("hello", photo="https://blocked.example/a.jpg")
+    assert calls == [("sendPhoto", "url"), ("sendMessage", "url")]  # plain text, nothing lost
