@@ -84,6 +84,7 @@ jobs:
 
       - name: "Daily backup of the state (keeps history on the `state-backup` branch)"
         if: always()
+        continue-on-error: true  # a backup problem must never turn the whole run red
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -95,7 +96,8 @@ jobs:
             git reset -q --hard FETCH_HEAD
             [ "$(cat .day 2>/dev/null)" = "$today" ] && { echo "backup already made today"; exit 0; }
           fi
-          [ -d /tmp/st ] && cp -r /tmp/st/. .
+          # copy the state files but NOT /tmp/st/.git (it collides with this repo's own .git)
+          [ -d /tmp/st ] && (cd /tmp/st && tar --exclude=.git -cf - .) | tar -xf -
           echo "$today" > .day
           git add -A
           git -c user.name=lifebots -c user.email=lifebots@users.noreply.github.com commit -q -m "backup $today" || { echo "nothing to back up"; exit 0; }
