@@ -74,6 +74,13 @@ def load_config(bot_dir: Path) -> dict:
         return tomllib.load(f)
 
 
+def asset_url(name: str) -> str:
+    """URL of a banner in assets/ (served from the public repo; Telegram fetches it itself).
+    If it cannot be fetched, Telegram.send falls back to a plain text message."""
+    repo = os.environ.get("GITHUB_REPOSITORY", "HuyLemm/lifebots")
+    return f"https://raw.githubusercontent.com/{repo}/main/assets/{name}.jpg"
+
+
 def esc(text: str) -> str:
     return html.escape(text, quote=False)
 

@@ -84,7 +84,8 @@ def test_build_message_reports_changes_and_baseline():
     assert build_message(t, prev, 0, False) == (None, {})  # unchanged -> silent
     t["rows"] = [("a", "RON 95", 21500.0)]
     msg, upd = build_message(t, prev, 0, False)
-    assert "21,000đ → <b>21,500đ</b>" in msg and "+500đ" in msg
+    assert "21,000đ → <b>21,500đ</b>" in msg and "🔺 tăng 500đ" in msg
+    assert "đồng/lít" in msg  # the legend explains the unit
     assert upd == {"a": 21500.0}
     prev.update(upd)  # the bot commits this only after Telegram accepted the message
     t["rows"] = [("a", "RON 95", 21510.0)]
@@ -165,3 +166,59 @@ def test_due_slot_delivers_the_latest_missed_report():
     assert due_slot(datetime(2026, 11, 26, 1, 10), hours, None) == "2026-11-26-0"  # midnight slot
     assert due_slot(datetime(2026, 11, 26, 9, 0), [8, 20], "2026-11-26-8") is None
     assert due_slot(datetime(2026, 11, 26, 5, 0), [8, 20], None) is None  # nothing due yet today
+
+
+def test_price_message_explains_the_change_from_real_data():
+    from price.bot import build_message, explain, market_context
+
+    gold = {
+        "title": "Vàng",
+        "unit": "luong",
+        "stamp": "",
+        "rows": [("sjc:x:buy", "SJC · Mua", 86_000_000.0), ("sjc:x:sell", "SJC · Bán", 88_000_000.0)],
+    }
+    prev = {"sjc:x:buy": 85_000_000.0, "sjc:x:sell": 87_000_000.0, "xau": 4000.0, "usdvnd": 26000.0}
+    world = {"rows": [("xau", "XAU", 4040.0)]}  # +1.0%
+    usd = {"rows": [("usdvnd", "USD", 26000.0)]}  # unchanged
+    ctx = market_context({"world_gold": world, "usd_vnd": usd}, prev)
+    msg, _ = build_message(gold, prev, 0, False, why=explain("sjc", ctx, gold))
+    assert "Mua vào" in msg and "Bán ra" in msg
+    assert "Có thể do vàng thế giới tăng 1.0%" in msg
+    assert "USD/VND" not in msg  # unchanged -> not blamed
+    assert "triệu đồng/lượng" in msg  # legend
+
+    # world gold moved the other way: say it is NOT the world price
+    ctx = market_context({"world_gold": {"rows": [("xau", "XAU", 3960.0)]}, "usd_vnd": usd}, prev)
+    msg, _ = build_message(gold, prev, 0, False, why=explain("sjc", ctx, gold))
+    assert "Ngược chiều vàng thế giới" in msg
+
+    # nothing known about world/usd -> no invented reason
+    ctx = market_context({}, {})
+    msg, _ = build_message(gold, prev, 0, False, why=explain("sjc", ctx, gold))
+    assert "💡" not in msg
+
+
+def test_weather_reasons_and_banner():
+    from datetime import datetime
+
+    from weather.bot import banner, reasons, summary
+
+    d = {"code": 1, "tmax": 34, "tmin": 25, "feels_max": 38, "yesterday_max": 30, "rain_day_prob": 70,
+         "rain_day_mm": 5, "uv": 9, "wind": 10, "hours_prob": [60, 80, 40], "hours_mm": [1, 2, 0],
+         "hours_time": ["2026-11-26T14:00", "2026-11-26T15:00", "2026-11-26T16:00"], "aqi": 120,
+         "pm25": 45, "now": 30, "feels": 36, "now_code": 61, "now_mm": 0.5, "humidity": 85,
+         "now_wind": 8}  # fmt: skip
+    notes = reasons(d, 3, max_notes=9)
+    text = "\n".join(notes)
+    assert "độ ẩm cao (85%)" in text and "áo mưa" in text and "PM2.5" in text
+    assert len(reasons(d, 3)) == 3  # short by default
+    msg = summary(d, "HCM", 3, datetime(2026, 11, 26, 14, 0))
+    assert "Cảm giác = " in msg and "AQI: ≤50 tốt" in msg  # legend
+
+    calm = {**d, "feels": 30, "hours_prob": [0, 0, 0], "aqi": 40, "uv": 3, "tmax": 30}
+    assert reasons(calm, 3) == []  # nothing to explain -> no filler
+    assert "💡" not in summary(calm, "HCM", 3, datetime(2026, 11, 26, 14, 0))
+    assert banner(d, datetime(2026, 11, 26, 14)) == "w_rain"
+    assert banner({**d, "now_code": 0}, datetime(2026, 11, 26, 21)) == "w_night"
+    assert banner({**d, "now_code": 0}, datetime(2026, 11, 26, 9)) == "w_sun"
+    assert banner(d, datetime(2026, 11, 26, 9), "storm") == "w_storm"

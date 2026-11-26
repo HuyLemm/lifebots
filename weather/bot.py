@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from shared.core import State, Telegram, esc, get_json, header, run
+from shared.core import State, Telegram, asset_url, esc, get_json, header, run
 from shared.health import watchdog
 
 AQI_LEVELS = [
@@ -52,7 +52,8 @@ def fetch(lat: float, lon: float) -> dict:
         longitude=lon,
         daily="weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,"
         "precipitation_sum,precipitation_probability_max,uv_index_max,wind_speed_10m_max",
-        current="temperature_2m,apparent_temperature,weather_code,precipitation",
+        current="temperature_2m,apparent_temperature,weather_code,precipitation,"
+        "relative_humidity_2m,wind_speed_10m",
         past_days=1,
         forecast_days=1,
         timezone="auto",
@@ -79,6 +80,8 @@ def fetch(lat: float, lon: float) -> dict:
         "feels": daily["current"]["apparent_temperature"],
         "now_code": daily["current"]["weather_code"],
         "now_mm": daily["current"]["precipitation"],
+        "humidity": daily["current"].get("relative_humidity_2m"),
+        "now_wind": daily["current"].get("wind_speed_10m"),
         "code": d["weather_code"][1],
         "tmax": d["temperature_2m_max"][1],
         "tmin": d["temperature_2m_min"][1],
@@ -177,14 +180,78 @@ def anomalies(d: dict, cfg: dict, hrs: int) -> list[tuple[str, float, str]]:
     return out  # fmt: skip
 
 
+LEGEND = (
+    "Cảm giác = nhiệt độ cơ thể thật sự cảm nhận (tính cả độ ẩm, gió) · "
+    "AQI: ≤50 tốt, 51–100 vừa, >150 xấu"
+)
+
+
+def reasons(d: dict, hrs: int, max_notes: int = 3) -> list[str]:
+    """Short 'because' lines, each derived from the numbers we actually have."""
+    out = []
+    gap, hum, wind = d["feels"] - d["now"], d.get("humidity"), d.get("now_wind")
+    soon = max([p or 0 for p in d["hours_prob"][:hrs]] or [0])
+    if gap >= 3 and hum is not None and hum >= 70:
+        out.append(
+            f"🥵 Nóng hơn thực tế {gap:.0f}°C vì độ ẩm cao ({hum:.0f}%): mồ hôi khó bay hơi."
+        )
+    elif gap <= -3 and wind is not None and wind >= 15:
+        out.append(f"🥶 Lạnh hơn thực tế {abs(gap):.0f}°C vì gió {wind:.0f} km/h.")
+    if soon >= 50:
+        out.append(
+            f"☔ Nên mang áo mưa: xác suất mưa {soon:.0f}% trong {hrs}h tới "
+            f"(cao nhất lúc {rain_peak(d)})."
+        )
+    if d["aqi"] >= 101:
+        out.append(f"😷 Không khí kém (bụi mịn PM2.5 = {d['pm25']:.0f}): nên đeo khẩu trang.")
+    if d["uv"] >= 6:
+        out.append(f"🕶 UV {d['uv']:.0f} cao: che nắng, nhất là 10h–16h.")
+    swing = d["tmax"] - d["yesterday_max"]
+    if abs(swing) >= 3:
+        out.append(f"🌡 Hôm nay {'nóng' if swing > 0 else 'lạnh'} hơn hôm qua {abs(swing):.0f}°C.")
+    return out[:max_notes]
+
+
+def banner(d: dict, now: datetime, alert_key: str | None = None) -> str:
+    """Picture name matching the situation (alerts first, then the current weather)."""
+    by_alert = {
+        "storm": "w_storm",
+        "rain": "w_rain",
+        "heavy_rain": "w_rain",
+        "heat": "w_heat",
+        "cold": "w_cold",
+        "aqi": "w_aqi",
+        "uv": "w_sun",
+    }
+    if alert_key in by_alert:
+        return by_alert[alert_key]
+    code = d["now_code"]
+    if code >= 95:
+        return "w_storm"
+    if code >= 51:
+        return "w_rain"
+    if code in (45, 48):
+        return "w_fog"
+    if code == 3:
+        return "w_cloud"
+    night = now.hour >= 18 or now.hour < 5
+    if code in (0, 1):
+        return "w_night" if night else "w_sun"
+    return "w_partly"
+
+
 def summary(d: dict, place: str, hrs: int, now: datetime) -> str:
     soon = max([p or 0 for p in d["hours_prob"][:hrs]] or [0])
-    return (
-        f"{header(f'🌤 Thời tiết {place}', now)}\n"
-        f"{wmo_label(d['now_code'])} · <b>{d['now']:.0f}°C</b> (cảm giác {d['feels']:.0f}°C)\n"
-        f"🌧 Mưa {hrs}h tới: <b>{soon:.0f}%</b> · cả ngày: {d['rain_day_prob']:.0f}%\n"
-        f"😷 AQI {d['aqi']:.0f} ({aqi_label(d['aqi'])})"
-    )
+    lines = [
+        f"{header(f'🌤 Thời tiết {place}', now)}",
+        f"{wmo_label(d['now_code'])} · <b>{d['now']:.0f}°C</b> (cảm giác {d['feels']:.0f}°C)",
+        f"🌧 Mưa {hrs}h tới: <b>{soon:.0f}%</b> · cả ngày: {d['rain_day_prob']:.0f}%",
+        f"😷 AQI {d['aqi']:.0f} ({aqi_label(d['aqi'])})",
+    ]
+    if why := reasons(d, hrs):
+        lines += ["", *why]
+    lines += ["", f"ℹ️ <i>{LEGEND}</i>"]
+    return "\n".join(lines)
 
 
 def due_slot(now: datetime, report_hours: list[int], last: str | None) -> str | None:
@@ -218,7 +285,9 @@ def check(tg: Telegram, state: State, args, cfg: dict) -> None:
         text = "\n\n".join(parts)
         if not with_summary:  # alerts only: still starts with the standard header
             text = f"{header(f'🌦 Cảnh báo thời tiết {place}', now)}\n{text}"
-        tg.send(text)  # raises on failure -> nothing marked -> retried next round
+        first_alert = due[0][0] if due and not with_summary else None
+        # raises on failure -> nothing marked -> retried next round
+        tg.send(text, photo=asset_url(banner(d, now, first_alert)))
         for key, _ in due:
             mark(state, key)
         if slot:

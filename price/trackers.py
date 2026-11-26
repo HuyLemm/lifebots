@@ -155,7 +155,7 @@ def fmt_value(unit: str, v: float) -> str:
 
 def fmt_delta(unit: str, d: float) -> str:
     return {
-        "luong": f"{d / 1e3:+,.0f}k",
+        "luong": f"{d / 1e3:+,.0f}k" if abs(d) < 1e6 else f"{d / 1e6:+,.1f} tr",
         "lit": f"{d:+,.0f}đ",
         "usd_oz": f"{d:+,.1f}$",
         "usd_vnd": f"{d:+,.0f}",
