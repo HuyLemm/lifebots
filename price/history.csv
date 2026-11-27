@@ -20,3 +20,33 @@ ts,key,label,value,unit
 2026-11-26T15:15:56,xag,XAG/USD,41.145,usd2
 2026-11-26T15:15:57,btc,BTC/USD,60552.738281,usd
 2026-11-26T15:15:58,brent,Brent,90.55,usd2
+2026-11-27T08:15:47,pnj:N24K:buy,Nhẫn trơn PNJ 24K · Mua,126400000.0,luong
+2026-11-27T08:45:51,pnj:SJC:buy,Vàng miếng SJC · Mua,129200000.0,luong
+2026-11-27T08:45:51,pnj:SJC:sell,Vàng miếng SJC · Bán,134200000.0,luong
+2026-11-27T08:55:15,pnj:N24K:buy,Nhẫn trơn PNJ 24K · Mua,126300000.0,luong
+2026-11-27T09:01:19,sjc:SJC 1L-10L:buy,SJC 1L-10L · Mua,129200000.0,luong
+2026-11-27T09:01:19,sjc:SJC 1L-10L:sell,SJC 1L-10L · Bán,134200000.0,luong
+2026-11-27T09:01:19,"sjc:Nhẫn SJC 99,99%:buy","Nhẫn SJC 99,99% · Mua",128000000.0,luong
+2026-11-27T09:01:19,"sjc:Nhẫn SJC 99,99%:sell","Nhẫn SJC 99,99% · Bán",134000000.0,luong
+2026-11-27T09:15:49,pnj:SJC:buy,Vàng miếng SJC · Mua,129800000.0,luong
+2026-11-27T09:15:49,pnj:SJC:sell,Vàng miếng SJC · Bán,134800000.0,luong
+2026-11-27T09:15:50,xau,XAU/USD,3612.25,usd_oz
+2026-11-27T09:31:06,sjc:SJC 1L-10L:buy,SJC 1L-10L · Mua,129800000.0,luong
+2026-11-27T09:31:06,sjc:SJC 1L-10L:sell,SJC 1L-10L · Bán,134800000.0,luong
+2026-11-27T09:31:06,"sjc:Nhẫn SJC 99,99%:buy","Nhẫn SJC 99,99% · Mua",128600000.0,luong
+2026-11-27T09:31:06,"sjc:Nhẫn SJC 99,99%:sell","Nhẫn SJC 99,99% · Bán",134600000.0,luong
+2026-11-27T10:01:24,sjc:SJC 1L-10L:buy,SJC 1L-10L · Mua,130500000.0,luong
+2026-11-27T10:01:24,sjc:SJC 1L-10L:sell,SJC 1L-10L · Bán,135500000.0,luong
+2026-11-27T10:01:24,"sjc:Nhẫn SJC 99,99%:buy","Nhẫn SJC 99,99% · Mua",129300000.0,luong
+2026-11-27T10:01:24,"sjc:Nhẫn SJC 99,99%:sell","Nhẫn SJC 99,99% · Bán",135300000.0,luong
+2026-11-27T10:31:08,pnj:SJC:buy,Vàng miếng SJC · Mua,130500000.0,luong
+2026-11-27T10:31:08,pnj:SJC:sell,Vàng miếng SJC · Bán,135500000.0,luong
+2026-11-27T12:31:16,xau,XAU/USD,3648.600098,usd_oz
+2026-11-27T14:01:27,pnj:N24K:buy,Nhẫn trơn PNJ 24K · Mua,126800000.0,luong
+2026-11-27T14:01:27,pnj:N24K:sell,Nhẫn trơn PNJ 24K · Bán,133000000.0,luong
+2026-11-27T14:31:12,sjc:SJC 1L-10L:buy,SJC 1L-10L · Mua,131000000.0,luong
+2026-11-27T14:31:12,sjc:SJC 1L-10L:sell,SJC 1L-10L · Bán,136000000.0,luong
+2026-11-27T14:31:12,"sjc:Nhẫn SJC 99,99%:buy","Nhẫn SJC 99,99% · Mua",130800000.0,luong
+2026-11-27T14:31:12,"sjc:Nhẫn SJC 99,99%:sell","Nhẫn SJC 99,99% · Bán",135800000.0,luong
+2026-11-27T17:13:00,pnj:SJC:buy,Vàng miếng SJC · Mua,131000000.0,luong
+2026-11-27T17:13:00,pnj:SJC:sell,Vàng miếng SJC · Bán,136000000.0,luong
