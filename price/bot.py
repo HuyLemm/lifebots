@@ -154,10 +154,10 @@ def explain(name: str, ctx: dict, tracker: dict) -> Callable[[int], str]:
                 )
             return "💡 Vàng thế giới và tỷ giá gần như không đổi: chủ yếu do cung – cầu trong nước."
         if name == "petrol":
-            return f"💡 Giá {_verb(d)} theo kỳ điều chỉnh mới của Petrolimex, thường bám giá dầu thế giới."
+            return f"💡 Giá xăng {_verb(d)} theo kỳ điều chỉnh mới của Petrolimex."
         if name == "usd_vnd":
             return (
-                "💡 USD mạnh lên so với đồng: vàng, xăng dầu, hàng nhập khẩu thường đắt hơn."
+                "💡 USD mạnh lên so với đồng: vàng, xăng, hàng nhập khẩu thường đắt hơn."
                 if d > 0
                 else "💡 USD yếu đi so với đồng: hàng nhập khẩu thường rẻ hơn."
             )
@@ -168,10 +168,6 @@ def explain(name: str, ctx: dict, tracker: dict) -> Callable[[int], str]:
         return ""
 
     return why
-
-
-def _no_brent(cfg: dict) -> dict:
-    raise KeyError("brent tracker not available")
 
 
 def maintenance(tg: Telegram, state: State, cfg: dict) -> None:
@@ -189,7 +185,7 @@ def maintenance(tg: Telegram, state: State, cfg: dict) -> None:
         state.data["heartbeat_day"] = today  # marked first: a chart problem must not repeat this
         if monday:
             cmd_bieudo(tg, state, None, "sjc 7")  # the week at a glance (no-op without history)
-    petrol_reminder(tg, state, TRACKERS.get("brent", _no_brent), now)
+    petrol_reminder(tg, state, now)
     token_warning(tg, state, cfg)
     watchdog(tg, state, WATCHED, cfg.get("interval_seconds", 60))
 

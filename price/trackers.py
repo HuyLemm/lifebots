@@ -132,7 +132,7 @@ def petrol(cfg: dict) -> dict:
             rows.append((f"petrol:{cells[0]}", cells[0], float(cells[col].replace(".", ""))))
     stamp = re.search(r"Cập nhật lúc ([\d:]+ [\d/]+)", html)
     return {
-        "title": f"⛽ {'Giá xăng' if only else 'Giá xăng dầu'} Petrolimex (vùng {cfg.get('region', 1)})",
+        "title": f"⛽ {'Giá xăng E10 RON 95' if only else 'Giá xăng dầu'} · Petrolimex (vùng {cfg.get('region', 1)})",
         "unit": "lit",
         "stamp": stamp.group(1) if stamp else "",
         "rows": rows,

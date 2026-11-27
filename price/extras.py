@@ -243,36 +243,20 @@ def extras_for(name: str, tracker: dict, fetched: dict) -> list[str]:
 # ---------- reminders ----------
 
 
-def petrol_reminder(tg: Telegram, state, fetch_brent, now: datetime | None = None) -> None:
-    """Thursday afternoon: petrol prices are usually re-set around 15h. Adds the Brent move vs
-    last Thursday as a rough, clearly-labelled hint (Petrolimex follows Singapore/Platts + a
-    stabilisation fund, so this is indicative only)."""
+def petrol_reminder(tg: Telegram, state, now: datetime | None = None) -> None:
+    """Thursday afternoon: the petrol price is usually re-set around 15h. One short heads-up,
+    once per Thursday (a late run still delivers it). The new price itself comes from the normal
+    petrol message as soon as Petrolimex publishes it."""
     now = now or datetime.now()
     today = f"{now:%Y-%m-%d}"
     if now.weekday() != 3 or now.hour < 13 or state.data.get("petrol_remind_day") == today:
         return
-    try:
-        brent = float(fetch_brent({})["rows"][0][2])
-    except Exception:  # noqa: BLE001 - the reminder is useful even without the oil number
-        brent = None
-    ref = state.data.get("brent_ref")
-    lines = [
-        header("⛽ Kỳ điều hành giá xăng dầu", now),
-        "Hôm nay thứ Năm: giá xăng dầu trong nước thường được điều chỉnh vào chiều nay (khoảng 15h).",
-    ]
-    if brent and ref and ref["day"] != today:
-        pct = (brent - ref["value"]) / ref["value"] * 100
-        trend = "tăng" if pct >= 1.5 else "giảm" if pct <= -1.5 else "đi ngang"
-        lines.append(
-            f"🛢 Dầu Brent ${brent:,.2f} ({pct:+.1f}% so với thứ Năm trước) → giá xăng có thể {trend}."
-        )
-        lines.append("ℹ️ <i>Chỉ là gợi ý tham khảo: giá thật còn phụ thuộc giá Singapore và quỹ bình ổn.</i>")
-    elif brent:
-        lines.append(f"🛢 Dầu Brent hiện ${brent:,.2f} (tuần sau sẽ có mốc để so sánh).")
-    tg.send("\n".join(lines), photo=asset_url("price_petrol"))
+    tg.send(
+        f"{header('⛽ Kỳ điều hành giá xăng', now)}\n"
+        "Hôm nay thứ Năm: giá xăng trong nước thường được điều chỉnh vào chiều nay (khoảng 15h).",
+        photo=asset_url("price_petrol"),
+    )
     state.data["petrol_remind_day"] = today
-    if brent:
-        state.data["brent_ref"] = {"value": brent, "day": today}
 
 
 def token_warning(tg: Telegram, state, cfg: dict, today: date | None = None) -> None:

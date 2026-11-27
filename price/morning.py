@@ -66,7 +66,7 @@ def send_morning(
 ) -> None:
     """Once per day at/after `morning_hour` (-1 = off). Marked sent only after Telegram accepted."""
     now = now or datetime.now()
-    hour = cfg.get("morning_hour", 7)
+    hour = cfg.get("morning_hour", -1)  # off unless price/config.toml turns it on
     today = f"{now:%Y-%m-%d}"
     if hour < 0 or not (hour <= now.hour < hour + WINDOW_HOURS):
         return

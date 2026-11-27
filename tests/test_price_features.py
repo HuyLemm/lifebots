@@ -105,31 +105,37 @@ def test_series_carries_values_forward_and_extremes(tmp_path):
     assert history.extreme("k", 100e6, 30, p, now) is None  # too young to claim a record
 
 
-def test_petrol_reminder_thursday_only_once(tmp_path):
+def test_petrol_reminder_thursday_only_once_and_mentions_no_oil(tmp_path):
     st, tg = State(tmp_path), TG()
-    fetch = lambda cfg: {"rows": [("brent", "Brent", 80.0)]}  # noqa: E731
     wed, thu = datetime(2026, 11, 25, 15), datetime(2026, 11, 26, 14)
     assert thu.weekday() == 3
-    extras.petrol_reminder(tg, st, fetch, wed)
-    assert tg.sent == []
-    extras.petrol_reminder(tg, st, fetch, thu)
-    assert len(tg.sent) == 1 and "Brent hiện $80.00" in tg.sent[0][0]  # first week: no reference yet
-    extras.petrol_reminder(tg, st, fetch, thu)
-    assert len(tg.sent) == 1  # once per day
-    nxt = thu + timedelta(days=7)
-    extras.petrol_reminder(tg, st, lambda c: {"rows": [("brent", "Brent", 84.0)]}, nxt)
-    assert "+5.0%" in tg.sent[1][0] and "có thể tăng" in tg.sent[1][0]
-    assert "tham khảo" in tg.sent[1][0]  # labelled as a rough hint
+    extras.petrol_reminder(tg, st, wed)
+    assert tg.sent == []  # not a Thursday
+    extras.petrol_reminder(tg, st, datetime(2026, 11, 26, 9))
+    assert tg.sent == []  # Thursday morning: too early
+    extras.petrol_reminder(tg, st, thu)
+    assert len(tg.sent) == 1
+    text = tg.sent[0][0]
+    assert "giá xăng" in text and "dầu" not in text.lower() and "brent" not in text.lower()
+    extras.petrol_reminder(tg, st, thu)
+    assert len(tg.sent) == 1  # once per Thursday
+    extras.petrol_reminder(tg, st, thu + timedelta(days=7))
+    assert len(tg.sent) == 2  # and again the next Thursday
 
 
-def test_petrol_reminder_survives_oil_failure(tmp_path):
-    st, tg = State(tmp_path), TG()
+def test_petrol_message_says_xang_e10_ron95_not_dau():
+    from price.bot import build_message, explain
 
-    def broken(cfg):
-        raise KeyError("x")
-
-    extras.petrol_reminder(tg, st, broken, datetime(2026, 11, 26, 14))
-    assert len(tg.sent) == 1 and "Brent" not in tg.sent[0][0]
+    t = {
+        "title": "⛽ Giá xăng E10 RON 95 · Petrolimex (vùng 1)",
+        "unit": "lit",
+        "stamp": "",
+        "rows": [("petrol:Xăng E10 RON 95 mức 5", "Xăng E10 RON 95 mức 5", 21050.0)],
+    }
+    prev = {"petrol:Xăng E10 RON 95 mức 5": 21100.0}
+    msg, _ = build_message(t, prev, 0, False, why=explain("petrol", {}, t))
+    assert "Giá xăng E10 RON 95" in msg and "Giá xăng giảm" in msg
+    assert "dầu" not in msg.lower()  # no oil talk in a petrol message
 
 
 def test_token_warning_window(tmp_path):
