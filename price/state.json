@@ -7,8 +7,8 @@
   "sjc:Nhẫn SJC 99,99%:sell": 135800000.0,
   "pnj:SJC:buy": 131000000.0,
   "pnj:SJC:sell": 136000000.0,
-  "pnj:N24K:buy": 126800000.0,
-  "pnj:N24K:sell": 133000000.0,
+  "pnj:N24K:buy": 127500000.0,
+  "pnj:N24K:sell": 133700000.0,
   "petrol:Xăng E10 RON 95 mức 5": 21050.0,
   "petrol:Xăng E10 RON 95 mức 3": 19050.0,
   "petrol:Dầu DO 0,001S mức 5": 27060.0,
@@ -22,7 +22,7 @@
  },
  "heartbeat_day": "2026-11-26",
  "watch": {},
- "last_check": 1795798896.3677442,
+ "last_check": 1795885284.9890642,
  "offset": 460198766,
  "commands_set": true,
  "health": {},
@@ -33,6 +33,7 @@
  },
  "stats": {
   "2026-11-26": 4,
-  "2026-11-27": 13
+  "2026-11-27": 13,
+  "2026-11-28": 1
  }
 }

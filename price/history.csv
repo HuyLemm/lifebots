@@ -50,3 +50,5 @@ ts,key,label,value,unit
 2026-11-27T14:31:12,"sjc:Nhẫn SJC 99,99%:sell","Nhẫn SJC 99,99% · Bán",135800000.0,luong
 2026-11-27T17:13:00,pnj:SJC:buy,Vàng miếng SJC · Mua,131000000.0,luong
 2026-11-27T17:13:00,pnj:SJC:sell,Vàng miếng SJC · Bán,136000000.0,luong
+2026-11-28T09:31:09,pnj:N24K:buy,Nhẫn trơn PNJ 24K · Mua,127500000.0,luong
+2026-11-28T09:31:09,pnj:N24K:sell,Nhẫn trơn PNJ 24K · Bán,133700000.0,luong
